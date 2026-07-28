@@ -1,0 +1,34 @@
+{
+  "name": "iobroker.alarm-control",
+  "version": "0.1.0",
+  "description": "Simple alarm system control for ioBroker with detector groups, areas, residents, Telegram, Asterisk and actuators",
+  "author": "Tobias Schu",
+  "license": "MIT",
+  "homepage": "https://github.com/ToSchu41/ioBroker.alarm-control",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ToSchu41/ioBroker.alarm-control.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ToSchu41/ioBroker.alarm-control/issues"
+  },
+  "keywords": [
+    "ioBroker",
+    "alarm",
+    "security",
+    "telegram",
+    "asterisk",
+    "residents"
+  ],
+  "main": "main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --check main.js && node -e \"JSON.parse(require('fs').readFileSync('io-package.json')); JSON.parse(require('fs').readFileSync('package.json')); console.log('JSON OK')\""
+  },
+  "dependencies": {
+    "@iobroker/adapter-core": "^3.2.3"
+  },
+  "devDependencies": {}
+}

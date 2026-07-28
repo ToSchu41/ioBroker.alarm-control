@@ -1,0 +1,87 @@
+{
+  "common": {
+    "name": "alarm-control",
+    "version": "0.1.0",
+    "news": {
+      "0.1.0": {
+        "en": "Initial release",
+        "de": "Erste Version"
+      }
+    },
+    "titleLang": {
+      "en": "Alarm Control",
+      "de": "Alarm Control"
+    },
+    "desc": {
+      "en": "Simple alarm system with detectors, groups, security areas and actions",
+      "de": "Einfache Alarmanlage mit Meldern, Meldegruppen, Sicherungsbereichen und Aktionen"
+    },
+    "authors": [
+      "Tobias Schu"
+    ],
+    "keywords": [
+      "alarm",
+      "security",
+      "telegram",
+      "asterisk",
+      "residents"
+    ],
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "main": "main.js",
+    "icon": "alarm-control.svg",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/ToSchu41/ioBroker.alarm-control/main/admin/alarm-control.svg",
+    "readme": "https://github.com/ToSchu41/ioBroker.alarm-control/blob/main/README.md",
+    "loglevel": "info",
+    "mode": "daemon",
+    "type": "security",
+    "compact": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "adminUI": {
+      "config": "html"
+    },
+    "supportCustoms": false,
+    "dependencies": [
+      {
+        "js-controller": ">=6.0.0"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.0.0"
+      }
+    ]
+  },
+  "native": {
+    "enabled": true,
+    "defaultExitDelay": 60,
+    "defaultEntryDelay": 30,
+    "maxSirenSeconds": 180,
+    "historyLimit": 100,
+    "restoreModeAfterRestart": true,
+    "residentsEnabled": false,
+    "residentsStateId": "",
+    "residentsHomeValues": "home,true,1",
+    "residentsAwayValues": "away,false,0",
+    "residentsVacationValues": "vacation,longAway",
+    "residentsUnknownValues": "unknown,null",
+    "autoArmAway": true,
+    "autoArmVacation": true,
+    "autoDisarmHome": false,
+    "telegramInstance": "telegram.0",
+    "telegramUser": "",
+    "asteriskMode": "state",
+    "asteriskInstance": "asterisk.0",
+    "asteriskStateId": "",
+    "asteriskCommand": "call",
+    "asteriskPayload": "{\"number\":\"\",\"text\":\"Alarm ausgelöst\"}",
+    "detectors": "[]",
+    "groups": "[]",
+    "areas": "[]",
+    "actions": "[]"
+  },
+  "objects": [],
+  "instanceObjects": []
+}

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" type="text/css" href="../../css/adapter.css"/>
+<link rel="stylesheet" type="text/css" href="../../lib/css/materialize.css">
+<script type="text/javascript" src="../../lib/js/jquery-3.2.1.min.js"></script>
+<script type="text/javascript" src="../../socket.io/socket.io.js"></script>
+<script type="text/javascript" src="../../js/translate.js"></script>
+<script type="text/javascript" src="../../lib/js/materialize.js"></script>
+<script type="text/javascript" src="../../js/adapter-settings.js"></script>
+<style>
+body{padding:0 16px}.brand{display:flex;align-items:center;gap:14px}.brand img{width:56px}.tab-content{padding-top:18px}
+table.config-table{font-size:13px}.config-table input,.config-table select{min-width:90px}
+.config-table td{vertical-align:top}.wide{min-width:220px!important}.hint{color:#607d8b;font-size:13px}
+button.small-btn{padding:0 10px;height:32px;line-height:32px}.danger{background:#c62828}
+</style>
+<script>
+let settings = {};
+const tableDefs = {
+ detectors: {
+  columns:[
+   ["id","ID","text"],["name","Name","text"],["stateId","Datenpunkt","text"],["groupId","Meldegruppe-ID","text"],
+   ["condition","Bedingung","select",["true","false","eq","neq","gt","lt","between","contains","regex"]],
+   ["value","Vergleichswert","text"],["min","Min","number"],["max","Max","number"],
+   ["triggerDelaySeconds","Auslösung nach s","number"],["entryDelayed","Eintritt verzögert","checkbox"],
+   ["entryDelaySeconds","Eintritt s","number"],["armBehavior","Offen beim Schärfen","select",["block","bypass","allow"]],
+   ["alwaysActive","Immer aktiv","checkbox"],["enabled","Aktiv","checkbox"]
+  ],
+  defaults:{condition:"true",triggerDelaySeconds:0,entryDelayed:false,entryDelaySeconds:30,armBehavior:"block",alwaysActive:false,enabled:true}
+ },
+ groups:{
+  columns:[["id","ID","text"],["name","Name","text"],["actionIds","Aktions-IDs (Komma)","csv"],["enabled","Aktiv","checkbox"]],
+  defaults:{enabled:true}
+ },
+ areas:{
+  columns:[["id","ID","text"],["name","Name","text"],["groupIds","Meldegruppen-IDs (Komma)","csv"],["modes","Modi (internal,external,vacation)","csv"],["actionIds","Aktions-IDs (Komma)","csv"],["enabled","Aktiv","checkbox"]],
+  defaults:{modes:["external","vacation"],enabled:true}
+ },
+ actions:{
+  columns:[
+   ["id","ID","text"],["name","Name","text"],["type","Typ","select",["telegram","asterisk","siren","light","scene","state"]],
+   ["stateId","Datenpunkt","text"],["value","Ein-Wert","text"],["offValue","Aus-Wert","text"],
+   ["valueType","Werttyp","select",["boolean","number","string","json"]],["delaySeconds","Verzögerung s","number"],
+   ["offAfterSeconds","Aus nach s","number"],["text","Telegram-Text","text"],["instance","Adapterinstanz","text"],
+   ["asteriskMode","Asterisk-Modus","select",["state","sendTo"]],["command","sendTo-Befehl","text"],["payload","Payload","text"],
+   ["enabled","Aktiv","checkbox"]
+  ],
+  defaults:{type:"telegram",value:"true",offValue:"false",valueType:"boolean",delaySeconds:0,offAfterSeconds:0,enabled:true}
+ }
+};
+
+function safeParse(v){try{return JSON.parse(v||"[]")}catch(e){return []}}
+function esc(v){return $("<div>").text(v==null?"":String(v)).html()}
+function renderTable(name){
+ const def=tableDefs[name], data=safeParse(settings[name]);
+ let html="<table class='striped config-table'><thead><tr>";
+ def.columns.forEach(c=>html+="<th>"+c[1]+"</th>");
+ html+="<th></th></tr></thead><tbody>";
+ data.forEach((row,i)=>{html+=rowHtml(name,row,i)});
+ html+="</tbody></table><p><button type='button' class='btn small-btn' onclick=\"addRow('"+name+"')\">+ Hinzufügen</button></p>";
+ $("#table-"+name).html(html);
+}
+function rowHtml(name,row,i){
+ let h="<tr data-index='"+i+"'>";
+ tableDefs[name].columns.forEach(c=>{
+  const [key,label,type,opts]=c; let val=row[key];
+  if(type==="csv" && Array.isArray(val)) val=val.join(",");
+  if(type==="checkbox") h+="<td><label><input type='checkbox' data-key='"+key+"' "+(val!==false?"checked":"")+"><span></span></label></td>";
+  else if(type==="select"){h+="<td><select class='browser-default' data-key='"+key+"'>";opts.forEach(o=>h+="<option "+(val===o?"selected":"")+">"+o+"</option>");h+="</select></td>";}
+  else h+="<td><input "+(key==="stateId"?"class='wide' ":"")+"type='"+(type==="number"?"number":"text")+"' data-key='"+key+"' value='"+esc(val)+"'></td>";
+ });
+ h+="<td><button type='button' class='btn small-btn danger' onclick=\"removeRow('"+name+"',"+i+")\">×</button></td></tr>";
+ return h;
+}
+function collectTable(name){
+ const rows=[];
+ $("#table-"+name+" tbody tr").each(function(){
+  const obj={};
+  $(this).find("[data-key]").each(function(){
+   const key=$(this).data("key"), col=tableDefs[name].columns.find(c=>c[0]===key), type=col[2];
+   let v;
+   if(type==="checkbox") v=$(this).prop("checked");
+   else v=$(this).val();
+   if(type==="number") v=Number(v||0);
+   if(type==="csv") v=String(v||"").split(",").map(x=>x.trim()).filter(Boolean);
+   obj[key]=v;
+  });
+  rows.push(obj);
+ });
+ return rows;
+}
+function addRow(name){const d=collectTable(name);d.push(Object.assign({},tableDefs[name].defaults));settings[name]=JSON.stringify(d);renderTable(name);onChange();}
+function removeRow(name,i){const d=collectTable(name);d.splice(i,1);settings[name]=JSON.stringify(d);renderTable(name);onChange();}
+function load(s,onChangeCb){
+ settings=s;
+ $(".value").each(function(){
+  const key=$(this).attr("id");
+  if($(this).attr("type")==="checkbox") $(this).prop("checked",!!s[key]);
+  else $(this).val(s[key]===undefined?"":s[key]);
+ }).on("change input",()=>onChangeCb());
+ Object.keys(tableDefs).forEach(renderTable);
+ $(".tabs").tabs();
+ onChangeCb(false);
+}
+function save(callback){
+ $(".value").each(function(){
+  const key=$(this).attr("id");
+  settings[key]=$(this).attr("type")==="checkbox"?$(this).prop("checked"):$(this).val();
+ });
+ Object.keys(tableDefs).forEach(name=>settings[name]=JSON.stringify(collectTable(name)));
+ callback(settings);
+}
+</script>
+</head>
+<body>
+<div class="brand"><img src="alarm-control.svg"><div><h5>Alarm Control</h5><div class="hint">Einfache Alarmanlage für ioBroker</div></div></div>
+<div class="row"><div class="col s12"><ul class="tabs">
+<li class="tab col"><a class="active" href="#general">Allgemein</a></li>
+<li class="tab col"><a href="#detectors">Melder</a></li>
+<li class="tab col"><a href="#groups">Meldegruppen</a></li>
+<li class="tab col"><a href="#areas">Sicherungsbereiche</a></li>
+<li class="tab col"><a href="#actions">Aktionen</a></li>
+<li class="tab col"><a href="#residents">Residents</a></li>
+<li class="tab col"><a href="#notifications">Benachrichtigungen</a></li>
+</ul></div></div>
+
+<div id="general" class="tab-content">
+<div class="row">
+<div class="input-field col s12 m3"><input class="value" id="defaultExitDelay" type="number"><label class="active">Standard-Austrittsverzögerung (s)</label></div>
+<div class="input-field col s12 m3"><input class="value" id="defaultEntryDelay" type="number"><label class="active">Standard-Eintrittsverzögerung (s)</label></div>
+<div class="input-field col s12 m3"><input class="value" id="maxSirenSeconds" type="number"><label class="active">Maximale Sirenenlaufzeit (s)</label></div>
+<div class="input-field col s12 m3"><input class="value" id="historyLimit" type="number"><label class="active">Historieneinträge</label></div>
+</div>
+<p><label><input class="value" id="restoreModeAfterRestart" type="checkbox"><span>Alarmmodus nach Adapter-Neustart wiederherstellen</span></label></p>
+<p class="hint">Hinweis: Alarm Control ersetzt keine zertifizierte Einbruchmeldeanlage. Sirenen und Telefonaktionen zuerst mit sicheren Testwerten prüfen.</p>
+</div>
+
+<div id="detectors" class="tab-content"><p class="hint">Jeder Melder verweist auf einen ioBroker-Datenpunkt und gehört zu genau einer Meldegruppe.</p><div id="table-detectors"></div></div>
+<div id="groups" class="tab-content"><p class="hint">Meldegruppen bündeln Melder. Aktions-IDs können ergänzend zu den Aktionen eines Sicherungsbereichs angegeben werden.</p><div id="table-groups"></div></div>
+<div id="areas" class="tab-content"><p class="hint">Sicherungsbereiche verknüpfen Meldegruppen, Scharfschaltmodi und Alarmaktionen.</p><div id="table-areas"></div></div>
+<div id="actions" class="tab-content"><p class="hint">Platzhalter: {detector}, {group}, {area}, {mode}, {time}, {value}. Bei Sirenen begrenzt „Maximale Sirenenlaufzeit“ die Laufzeit zusätzlich.</p><div id="table-actions"></div></div>
+
+<div id="residents" class="tab-content">
+<p><label><input class="value" id="residentsEnabled" type="checkbox"><span>Residents-/Anwesenheitsintegration aktivieren</span></label></p>
+<div class="row">
+<div class="input-field col s12"><input class="value" id="residentsStateId"><label class="active">Anwesenheits-Datenpunkt</label></div>
+<div class="input-field col s12 m6"><input class="value" id="residentsHomeValues"><label class="active">Werte für anwesend (Komma)</label></div>
+<div class="input-field col s12 m6"><input class="value" id="residentsAwayValues"><label class="active">Werte für abwesend (Komma)</label></div>
+<div class="input-field col s12 m6"><input class="value" id="residentsVacationValues"><label class="active">Werte für länger abwesend/Urlaub (Komma)</label></div>
+<div class="input-field col s12 m6"><input class="value" id="residentsUnknownValues"><label class="active">Werte für unbekannt (Komma)</label></div>
+</div>
+<p><label><input class="value" id="autoArmAway" type="checkbox"><span>Bei Abwesenheit automatisch extern scharfschalten</span></label></p>
+<p><label><input class="value" id="autoArmVacation" type="checkbox"><span>Bei längerer Abwesenheit automatisch Urlaub scharfschalten</span></label></p>
+<p><label><input class="value" id="autoDisarmHome" type="checkbox"><span>Bei Anwesenheit automatisch unscharfschalten (Sicherheitsrisiko beachten)</span></label></p>
+</div>
+
+<div id="notifications" class="tab-content">
+<h6>Telegram</h6>
+<div class="row">
+<div class="input-field col s12 m6"><input class="value" id="telegramInstance"><label class="active">Telegram-Instanz</label></div>
+<div class="input-field col s12 m6"><input class="value" id="telegramUser"><label class="active">Empfänger (optional)</label></div>
+</div>
+<h6>Asterisk</h6>
+<div class="row">
+<div class="input-field col s12 m4"><select class="value browser-default" id="asteriskMode"><option value="state">Datenpunkt schreiben</option><option value="sendTo">sendTo verwenden</option></select><label class="active">Modus</label></div>
+<div class="input-field col s12 m4"><input class="value" id="asteriskInstance"><label class="active">Asterisk-Instanz</label></div>
+<div class="input-field col s12 m4"><input class="value" id="asteriskStateId"><label class="active">Asterisk-Datenpunkt</label></div>
+<div class="input-field col s12 m4"><input class="value" id="asteriskCommand"><label class="active">sendTo-Befehl</label></div>
+<div class="input-field col s12 m8"><input class="value" id="asteriskPayload"><label class="active">sendTo-Payload (JSON)</label></div>
+</div>
+</div>
+</body>
+</html>
