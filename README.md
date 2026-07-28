@@ -19,6 +19,14 @@ Der Adapter ersetzt keine zertifizierte Einbruchmeldeanlage. Telefon- und Sirene
 
 ## Changelog
 
+### 0.1.3
+
+- Schlichteres, technisches Admin-Design
+- Neutrale Grau- und Weißtöne
+- Nur noch eine dezente Akzentfarbe
+- Weniger Schatten, Rundungen und farbliche Hervorhebungen
+
+
 ### 0.1.1
 - Admin-Oberfläche vollständig überarbeitet
 - Klare Haupt-Tabs ergänzt

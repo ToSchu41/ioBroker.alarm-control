@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "news": {
       "0.1.1": {
         "de": "Überarbeitete Admin-Oberfläche mit klaren Tabs",
@@ -14,6 +14,10 @@
       "0.1.2": {
         "en": "Reliable independent admin tabs and theme-aware background",
         "de": "Zuverlässige unabhängige Admin-Tabs und themegerechter Hintergrund"
+      },
+      "0.1.3": {
+        "en": "Simplified and more neutral admin design",
+        "de": "Schlichteres und neutraleres Admin-Design"
       }
     },
     "titleLang": {
