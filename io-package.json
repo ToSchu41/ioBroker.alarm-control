@@ -1,30 +1,27 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "news": {
+      "0.1.1": {
+        "de": "Überarbeitete Admin-Oberfläche mit klaren Tabs",
+        "en": "Redesigned admin UI with clear tabs"
+      },
       "0.1.0": {
-        "en": "Initial release",
-        "de": "Erste Version"
+        "de": "Erste Version",
+        "en": "Initial release"
       }
     },
     "titleLang": {
-      "en": "Alarm Control",
-      "de": "Alarm Control"
+      "de": "Alarm Control",
+      "en": "Alarm Control"
     },
     "desc": {
-      "en": "Simple alarm system with detectors, groups, security areas and actions",
-      "de": "Einfache Alarmanlage mit Meldern, Meldegruppen, Sicherungsbereichen und Aktionen"
+      "de": "Einfache Alarmanlage mit Meldern, Meldegruppen, Sicherungsbereichen und Aktionen",
+      "en": "Simple alarm system with detectors, groups, areas and actions"
     },
     "authors": [
       "Tobias Schu"
-    ],
-    "keywords": [
-      "alarm",
-      "security",
-      "telegram",
-      "asterisk",
-      "residents"
     ],
     "license": "MIT",
     "platform": "Javascript/Node.js",
@@ -42,7 +39,6 @@
     "adminUI": {
       "config": "html"
     },
-    "supportCustoms": false,
     "dependencies": [
       {
         "js-controller": ">=6.0.0"
