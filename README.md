@@ -28,3 +28,11 @@ Der Adapter ersetzt keine zertifizierte Einbruchmeldeanlage. Telefon- und Sirene
 
 ### 0.1.0
 - Erste Version
+
+
+## 0.1.2
+
+- Eigene, von Materialize unabhängige Tab-Navigation
+- Nur der aktive Konfigurationsbereich wird angezeigt
+- Themegerechter Hintergrund ohne erzwungene weiße Seite
+- Bessere Darstellung im Dark Mode
