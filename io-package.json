@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "news": {
       "0.1.1": {
         "de": "Überarbeitete Admin-Oberfläche mit klaren Tabs",
@@ -18,6 +18,10 @@
       "0.1.3": {
         "en": "Simplified and more neutral admin design",
         "de": "Schlichteres und neutraleres Admin-Design"
+      },
+      "0.1.4": {
+        "en": "Object browser for state selection and reliable saving of table changes",
+        "de": "Objektbrowser zur Datenpunktauswahl und zuverlässiges Speichern von Tabellenänderungen"
       }
     },
     "titleLang": {

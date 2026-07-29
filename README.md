@@ -19,6 +19,14 @@ Der Adapter ersetzt keine zertifizierte Einbruchmeldeanlage. Telefon- und Sirene
 
 ## Changelog
 
+### 0.1.4
+
+- Objektbrowser für Melder-Datenpunkte und Aktor-Zieldatenpunkte
+- Objektbrowser für Residents- und Asterisk-Datenpunkt
+- Suchfunktion nach ID und Bezeichnung
+- Tabellenänderungen aktivieren zuverlässig die Speichern-Funktion
+
+
 ### 0.1.3
 
 - Schlichteres, technisches Admin-Design
