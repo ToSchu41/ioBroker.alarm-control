@@ -41,6 +41,9 @@ class AlarmControl extends utils.Adapter {
         await this.object('panic.trigger', 'boolean', 'button', true);
         await this.object('panic.reset', 'boolean', 'button', true);
         await this.object('panic.active', 'boolean', 'indicator.alarm');
+        await this.object('panic.sceneStatus', 'string', 'text', false, { idle: 'Noch nicht angefordert', not_configured: 'Keine Szene konfiguriert', requested: 'Aktivierung angefordert', error: 'Anforderung fehlgeschlagen' });
+        await this.object('panic.sceneLastResult', 'string', 'json');
+        await this.put('panic.sceneStatus', c.panicSceneId ? 'idle' : 'not_configured');
         for (const key of ['trigger', 'reset', 'active']) await this.put(`panic.${key}`, false);
         await this.channel('areas', 'Sicherungsbereiche');
         const enabled = new Map();
@@ -157,10 +160,28 @@ class AlarmControl extends utils.Adapter {
     }
     async activatePanicScene() {
         const id = this.settings.panicSceneId;
-        if (!id) return;
-        const obj = await this.getForeignObjectAsync(id);
-        if (!obj || obj.type !== 'state' || obj.common.type !== 'boolean' || !obj.common.write) throw new Error('Panikszene benötigt einen schreibbaren booleschen scene-Datenpunkt');
-        await this.setForeignStateAsync(id, { val: true, ack: false });
+        if (!id) { await this.put('panic.sceneStatus', 'not_configured'); return; }
+        const result = { id, timestamp: new Date().toISOString() };
+        try {
+            const obj = await this.getForeignObjectAsync(id);
+            // Scenes use 'mixed' to represent the additional state 'uncertain'.
+            if (!obj || obj.type !== 'state' || !['boolean', 'mixed'].includes(obj.common?.type) || !obj.common.write) throw new Error('Panikszene benötigt einen schreibbaren scene-Datenpunkt vom Typ boolean oder mixed');
+            if (obj.common.enabled !== true) throw new Error('Panikszene ist nicht aktiviert (common.enabled)');
+            if (!/^system\.adapter\.scenes\.\d+$/.test(obj.common.engine)) throw new Error('Panikszene ist keiner gültigen scenes-Instanz zugeordnet');
+            if (!Array.isArray(obj.native?.members) || !obj.native.members.length || obj.native.virtualGroup) throw new Error('Panikszene muss eine Szene mit Aktionen sein, keine leere Szene oder virtuelle Gruppe');
+            const alive = await this.getForeignStateAsync(`${obj.common.engine}.alive`);
+            if (active({ activeValue: 'true' }, alive) !== true) throw new Error(`Szenenadapter ${obj.common.engine} ist nicht erreichbar oder nicht gestartet`);
+            // Always write a command, including when the scene already reports true.
+            await this.setForeignStateAsync(id, { val: true, ack: false });
+            result.status = 'requested'; result.engine = obj.common.engine;
+            await this.put('panic.sceneStatus', 'requested');
+            await this.put('panic.sceneLastResult', JSON.stringify(result));
+        } catch (error) {
+            result.status = 'error'; result.error = error.message;
+            await this.put('panic.sceneStatus', 'error');
+            await this.put('panic.sceneLastResult', JSON.stringify(result));
+            throw new Error(`Panikszene ${id}: ${error.message}`);
+        }
     }
     async startSirens(area) {
         for (const s of this.settings.sirens.filter(s => s.enabled && (area === '*' || s.area === '*' || s.area === area))) {

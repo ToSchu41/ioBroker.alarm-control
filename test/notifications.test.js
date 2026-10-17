@@ -24,6 +24,7 @@ test('template typos, reference loops and invalid time zones fail validation', (
     assert.throws(() => validate({ ...c, timeZone: 'invalid/timezone' }), /Zeitzone/);
     assert.throws(() => validate({ ...c, panicSceneId: 'knx.0.light' }), /Panikszene/);
     assert.throws(() => validate({ ...c, panicStateId: 'knx.0.*' }), /Platzhalter/);
+    assert.equal(validate({ ...c, panicSceneId: 'scene.Panik' }).panicSceneId, 'scene.Panik');
 });
 test('manifest and package versions match and test buttons require messagebox', () => {
     const pkg = require('../package.json'); const ui = require('../admin/jsonConfig.json');

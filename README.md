@@ -1,6 +1,6 @@
 # ioBroker.alarm-control
 
-Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.2.0**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
+Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.2.1**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
 
 ## Funktionen
 
@@ -45,7 +45,7 @@ iobroker start alarm-control.0
 iobroker version alarm-control
 ```
 
-Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.2.0` zeigen.
+Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.2.1` zeigen.
 
 3. Admin im Browser vollständig neu laden und die Instanzeinstellungen öffnen. Neue Optionen kontrollieren und speichern, danach den Adapterneustart abwarten.
 4. Sensorstatus und Sabotagekontakte prüfen; anschließend über **Benachrichtigungen** die Testnachricht und Testanrufe auslösen.
@@ -139,6 +139,8 @@ Alle Angaben relativ zu `alarm-control.0`. Schreibbefehle mit **`ack=false`** se
 | `panic.trigger` | `true`: Panik auslösen; wird automatisch auf `false` bestätigt |
 | `panic.active` | Panik gespeichert |
 | `panic.reset` | `true`: Panik und zugehörige Sirenenanforderungen zurücksetzen |
+| `panic.sceneStatus` | Letzte Szenenanforderung: `idle`, `not_configured`, `requested` oder `error` |
+| `panic.sceneLastResult` | Szenen-ID, Zeitstempel, zuständige Instanz bzw. Fehler der letzten Anforderung als JSON |
 | `info.lastError` | Letzter Bedienungs-, Ausgangs- oder Benachrichtigungsfehler |
 | `info.lastEvent` | Letztes Ereignis als JSON, einschließlich Informationsmeldungen |
 | `info.eventHistory` | Ereignisprotokoll als JSON-Array, älteste zuerst; standardmäßig maximal 100 Einträge |
@@ -153,7 +155,9 @@ Bei gemeinsam genutzten Sirenen bleiben andere Bereichs- und Panikanforderungen 
 
 `panic.trigger=true` löst unabhängig vom Bereichsmodus aus. Telegram und alle aktivierten Telefonnummern werden benachrichtigt, unabhängig von deren Bereichszuordnung. Die konfigurierte Szene wird einmalig mit `true` und `ack=false` aktiviert; bei eingeschalteter Panik-Sirenenoption werden alle aktivierten Sirenen angefordert.
 
-Für die Szene den schreibbaren booleschen Aktivierungsdatenpunkt des Szenenadapters wählen, beispielsweise `scene.0.Panik`. Dort kann etwa „Licht an“ oder eine andere gewünschte Aktion hinterlegt werden. Der Adapter verändert die Szenendefinition nicht.
+Für die Szene den schreibbaren Aktivierungsdatenpunkt des Szenenadapters wählen, beispielsweise `scene.0.Panik`. Normale Szenen besitzen den Datentyp `mixed`, ältere Szenen können `boolean` verwenden; beide werden unterstützt. Dort kann etwa „Licht an“ oder eine andere gewünschte Aktion hinterlegt werden. Die Szene muss aktiviert, mit Aktionen belegt und einer laufenden `scenes`-Instanz zugeordnet sein. Der Adapter verändert die Szenendefinition nicht und aktiviert keine administrativ deaktivierte Szene.
+
+Bei jeder neuen Panikauslösung wird `true` mit `ack=false` geschrieben, auch wenn der Szenenwert bereits `true` war. Der Szenenadapter wertet diesen Schreibbefehl als erneute Aktivierung aus. Der Alarmadapter prüft vorher Szenenobjekt und Lebenszeichen der zuständigen Instanz. `panic.sceneStatus=requested` bestätigt einen erfolgreichen Schreibauftrag, **nicht** die physische Ausführung aller Aktionen. Dafür die Zielaktoren bzw. das Szenenadapter-Protokoll kontrollieren. Bei einem Fehler stehen Details in `panic.sceneLastResult` und `info.lastError`; Sirenen und Benachrichtigungen bleiben davon unabhängig.
 
 Panik bleibt bis `panic.reset=true` gespeichert. Wiederholte Auslösungen starten währenddessen keine weiteren Anruf-/Szenenaktionen. Ein konfigurierter externer Panikeingang muss zum Rücksetzen nachweislich in Ruhelage sein. Das Rücksetzen macht die Aktionen der Szene **nicht rückgängig** und storniert keine bereits angeforderten Anrufe.
 
@@ -191,6 +195,10 @@ GitHub Actions führt Syntaxprüfung und Tests unter Node 20, 22 und 24 aus. Die
 - [Telegram-Dokumentation](https://github.com/iobroker-community-adapters/ioBroker.telegram/blob/master/docs/en/README.md): `sendTo(instance, 'send', { text, user })`.
 
 ## Changelog
+
+### 0.2.1
+
+Panikszene: normale Szenen mit Datentyp `mixed` werden korrekt akzeptiert. Vor Auslösung werden Aktivierung, Aktionen und zuständige laufende Szeneninstanz geprüft. Neue Diagnoseobjekte `panic.sceneStatus` und `panic.sceneLastResult`. Regressionstest des vollständigen VIS-Panikpfads mit einem realistischen Szenenobjekt und erneuter Auslösung nach Rücksetzung.
 
 ### 0.2.0
 

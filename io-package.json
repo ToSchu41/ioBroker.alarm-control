@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "titleLang": {
       "en": "Alarm Control",
       "de": "Alarmsteuerung"
@@ -46,6 +46,10 @@
     ],
     "messagebox": true,
     "news": {
+      "0.2.1": {
+        "de": "Panikszene: Datentyp mixed unterstützen und Szenenbereitschaft prüfen",
+        "en": "Fix mixed scene activation and check scene readiness"
+      },
       "0.2.0": {
         "de": "Sabotagekontakte, Nachrichtenvorlagen, Panik, Sensorschaltung und Benachrichtigungstests",
         "en": "Tamper contacts, message templates, panic, sensor control and notification tests"

@@ -570,7 +570,7 @@
         },
         "panicSceneId": {
           "type": "objectId",
-          "label": "Panikszene (schreibbarer boolescher scene.0.… Datenpunkt)",
+          "label": "Panikszene (Aktivierungsdatenpunkt, z. B. scene.0.Panik)",
           "default": ""
         },
         "panicSirens": {

@@ -9,7 +9,10 @@ class Adapter {
     on(event, fn) { this.handlers[event] = fn; }
     setTimeout(fn) { const id = ++this.seq; this.clock.set(id, fn); return id; }
     clearTimeout(id) { this.clock.delete(id); }
-    async getForeignObjectAsync() { return { type: 'state', common: { type: 'boolean', write: true } }; }
+    async getForeignObjectAsync(id) {
+        if (id.startsWith('scene.')) return { type: 'state', common: { type: 'mixed', write: true, enabled: true, engine: 'system.adapter.scenes.0', role: 'scene.state' }, native: { members: [{ id: 'knx.0.panicLight', setIfTrue: true }] } };
+        return { type: 'state', common: { type: 'boolean', write: true } };
+    }
     async setForeignStateAsync(id, state) { this.writes.push({ id, ...state }); }
     async setStateAsync(id, state) { this.states.set(id, state); }
     async setStateChangedAsync(id, state) { this.states.set(id, state); }
@@ -28,6 +31,7 @@ const defaults = require('../io-package.json').native;
 function fixture() {
     const a = create();
     a.settings = structuredClone(defaults);
+    a.foreign.set('system.adapter.scenes.0.alive', { val: true, ack: true, q: 0 });
     a.settings.sirens[0].enabled = true; a.settings.sirens[0].stateId = 'knx.0.siren';
     return a;
 }
@@ -150,4 +154,55 @@ test('enable and panic writes are acknowledged and invalid values restored', asy
     await a.changed('alarm-control.0.panic.trigger', { val: true, ack: false }); await a.queue;
     assert.equal(a.states.get('panic.active').val, true); assert.equal(a.states.get('panic.trigger').val, false);
     a.engine.close();
+});
+
+test('VIS panic command requests a real mixed scene once and retriggers after reset even when scene is already true', async () => {
+    const a = fixture(); a.config = structuredClone(defaults);
+    a.config.panicSceneId = 'scene.0.Panik'; a.config.panicSirens = false;
+    a.foreign.set('scene.0.Panik', { val: true, ack: true });
+    await a.ready(); await a.queue;
+    const trigger = () => a.changed('alarm-control.0.panic.trigger', { val: true, ack: false });
+    await trigger(); await a.queue;
+    assert.deepEqual(a.writes, [{ id: 'scene.0.Panik', val: true, ack: false }]);
+    assert.equal(a.states.get('panic.sceneStatus').val, 'requested');
+    const result = JSON.parse(a.states.get('panic.sceneLastResult').val);
+    assert.equal(result.id, 'scene.0.Panik'); assert.equal(result.engine, 'system.adapter.scenes.0');
+    await trigger(); await a.queue; assert.equal(a.writes.length, 1);
+    await a.changed('alarm-control.0.panic.reset', { val: true, ack: false }); await a.queue;
+    await trigger(); await a.queue; assert.equal(a.writes.length, 2);
+    a.engine.close();
+});
+
+test('legacy boolean scenes can still be activated', async () => {
+    const a = fixture(); a.settings.panicSceneId = 'scene.Panik';
+    const obj = await a.getForeignObjectAsync('scene.Panik'); obj.common.type = 'boolean';
+    a.getForeignObjectAsync = async () => obj;
+    await a.activatePanicScene();
+    assert.deepEqual(a.writes, [{ id: 'scene.Panik', val: true, ack: false }]);
+});
+
+test('disabled scenes report an error without writing a misleading activation value', async () => {
+    const a = fixture(); a.settings.panicSceneId = 'scene.0.Panik';
+    const obj = await a.getForeignObjectAsync(a.settings.panicSceneId); obj.common.enabled = false;
+    a.getForeignObjectAsync = async () => obj;
+    await assert.rejects(() => a.activatePanicScene(), /nicht aktiviert/);
+    assert.equal(a.writes.length, 0); assert.equal(a.states.get('panic.sceneStatus').val, 'error');
+});
+
+test('offline scene adapter prevents a false successful request', async () => {
+    const a = fixture(); a.settings.panicSceneId = 'scene.0.Panik';
+    a.foreign.set('system.adapter.scenes.0.alive', { val: false, ack: true });
+    await assert.rejects(() => a.activatePanicScene(), /nicht erreichbar/);
+    assert.equal(a.writes.length, 0);
+    assert.match(JSON.parse(a.states.get('panic.sceneLastResult').val).error, /nicht erreichbar/);
+});
+
+test('empty scenes and virtual groups are rejected', async () => {
+    const a = fixture(); a.settings.panicSceneId = 'scene.0.Panik';
+    const obj = await a.getForeignObjectAsync(a.settings.panicSceneId);
+    obj.native.members = []; a.getForeignObjectAsync = async () => obj;
+    await assert.rejects(() => a.activatePanicScene(), /leere Szene/);
+    obj.native.members = [{ id: 'knx.0.panicLight' }]; obj.native.virtualGroup = true;
+    await assert.rejects(() => a.activatePanicScene(), /virtuelle Gruppe/);
+    assert.equal(a.writes.length, 0);
 });
