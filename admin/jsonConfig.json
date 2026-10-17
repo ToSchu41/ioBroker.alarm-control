@@ -1,0 +1,304 @@
+{
+  "type": "tabs",
+  "items": {
+    "areasTab": {
+      "type": "panel",
+      "label": "Bereiche",
+      "items": {
+        "hint": {
+          "type": "staticText",
+          "text": "IDs unverändert lassen. Anwesend überwacht außen, Abwesend innen und außen. Moduswechsel über areas.<ID>.mode."
+        },
+        "areas": {
+          "type": "table",
+          "label": "Sicherungsbereiche",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12,
+          "items": [
+            {
+              "attr": "id",
+              "title": "ID",
+              "type": "text"
+            },
+            {
+              "attr": "name",
+              "title": "Name",
+              "type": "text"
+            },
+            {
+              "attr": "exitSeconds",
+              "title": "Ausgangsverzögerung (s)",
+              "type": "number",
+              "default": 30,
+              "min": 0,
+              "max": 3600
+            }
+          ]
+        }
+      }
+    },
+    "sensorsTab": {
+      "type": "panel",
+      "label": "Sensoren",
+      "items": {
+        "hint": {
+          "type": "staticText",
+          "text": "Bestehenden KNX-Datenpunkt auswählen. Bereich: ID aus der Bereichstabelle. Mehrfachauslösung zählt neue Aktivierungen nach Rückkehr in Ruhelage. Aktivwert muss zum Datentyp passen."
+        },
+        "sensors": {
+          "type": "table",
+          "label": "Sensoren",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12,
+          "items": [
+            {
+              "attr": "enabled",
+              "title": "Aktiv",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "id",
+              "title": "ID",
+              "type": "text"
+            },
+            {
+              "attr": "name",
+              "title": "Name",
+              "type": "text"
+            },
+            {
+              "attr": "stateId",
+              "title": "Datenpunkt",
+              "type": "objectId"
+            },
+            {
+              "attr": "area",
+              "title": "Bereich-ID",
+              "type": "text",
+              "default": "haus"
+            },
+            {
+              "attr": "zone",
+              "title": "Zone",
+              "type": "select",
+              "options": [
+                {
+                  "value": "inside",
+                  "label": "Innen"
+                },
+                {
+                  "value": "outside",
+                  "label": "Außen"
+                }
+              ],
+              "default": "outside"
+            },
+            {
+              "attr": "activeValue",
+              "title": "Alarmwert",
+              "type": "select",
+              "options": [
+                {
+                  "value": "0",
+                  "label": "0 (Zahl)"
+                },
+                {
+                  "value": "1",
+                  "label": "1 (Zahl)"
+                },
+                {
+                  "value": "true",
+                  "label": "true (Boolean)"
+                },
+                {
+                  "value": "false",
+                  "label": "false (Boolean)"
+                }
+              ],
+              "default": "true"
+            },
+            {
+              "attr": "blockArm",
+              "title": "Offen blockiert Scharfschalten",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "holdSeconds",
+              "title": "Mindestaktivdauer (s)",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "max": 3600
+            },
+            {
+              "attr": "hits",
+              "title": "Aktivierungen",
+              "type": "number",
+              "default": 1,
+              "min": 1,
+              "max": 100
+            },
+            {
+              "attr": "windowSeconds",
+              "title": "Zählfenster (s)",
+              "type": "number",
+              "default": 30,
+              "min": 1,
+              "max": 3600
+            },
+            {
+              "attr": "entrySeconds",
+              "title": "Eingangsverzögerung (s)",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "max": 3600
+            }
+          ]
+        }
+      }
+    },
+    "sirensTab": {
+      "type": "panel",
+      "label": "Sirenen",
+      "items": {
+        "hint": {
+          "type": "staticText",
+          "text": "Schreibbaren booleschen Schaltkontakt wählen. Bereich * gilt für alle Bereiche. Die Laufzeit begrenzt den Kontakt; der Alarm bleibt bis Unscharf gespeichert."
+        },
+        "sirens": {
+          "type": "table",
+          "label": "Innensirenen",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12,
+          "items": [
+            {
+              "attr": "enabled",
+              "title": "Aktiv",
+              "type": "checkbox",
+              "default": false
+            },
+            {
+              "attr": "id",
+              "title": "ID",
+              "type": "text"
+            },
+            {
+              "attr": "name",
+              "title": "Name",
+              "type": "text"
+            },
+            {
+              "attr": "stateId",
+              "title": "Schaltkontakt",
+              "type": "objectId"
+            },
+            {
+              "attr": "area",
+              "title": "Bereich-ID oder *",
+              "type": "text",
+              "default": "*"
+            },
+            {
+              "attr": "inverted",
+              "title": "Invertiert",
+              "type": "checkbox",
+              "default": false
+            },
+            {
+              "attr": "durationSeconds",
+              "title": "Laufzeit (s)",
+              "type": "number",
+              "default": 120,
+              "min": 1,
+              "max": 3600
+            }
+          ]
+        }
+      }
+    },
+    "notificationsTab": {
+      "type": "panel",
+      "label": "Benachrichtigungen",
+      "items": {
+        "telegramEnabled": {
+          "type": "checkbox",
+          "label": "Telegram aktiv"
+        },
+        "telegramInstance": {
+          "type": "text",
+          "label": "Telegram-Instanz (z. B. telegram.0)"
+        },
+        "telegramUser": {
+          "type": "text",
+          "label": "Telegram-Benutzer (leer = alle im Telegram-Adapter)"
+        },
+        "asteriskEnabled": {
+          "type": "checkbox",
+          "label": "Telefonanruf aktiv"
+        },
+        "asteriskInstance": {
+          "type": "text",
+          "label": "Asterisk-Instanz (z. B. asterisk.0)"
+        },
+        "hint": {
+          "type": "staticText",
+          "text": "Alle aktivierten Telefonnummern des Bereichs werden bei Alarm angefordert. Keine Bestätigung oder automatische Anruf-Eskalation."
+        },
+        "recipients": {
+          "type": "table",
+          "label": "Telefonnummern zur Auswahl",
+          "newLine": true,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12,
+          "items": [
+            {
+              "attr": "enabled",
+              "title": "Anrufen",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "id",
+              "title": "ID",
+              "type": "text"
+            },
+            {
+              "attr": "name",
+              "title": "Name",
+              "type": "text"
+            },
+            {
+              "attr": "number",
+              "title": "Telefonnummer",
+              "type": "text"
+            },
+            {
+              "attr": "area",
+              "title": "Bereich-ID oder *",
+              "type": "text",
+              "default": "*"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

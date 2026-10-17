@@ -1,0 +1,113 @@
+{
+  "common": {
+    "name": "alarm-control",
+    "version": "0.1.0",
+    "titleLang": {
+      "en": "Alarm Control",
+      "de": "Alarmsteuerung"
+    },
+    "desc": {
+      "en": "Alarm areas using existing sensors, sirens and notifications",
+      "de": "Sicherungsbereiche mit vorhandenen Sensoren, Sirenen und Benachrichtigungen"
+    },
+    "authors": [
+      "ToSchu41"
+    ],
+    "keywords": [
+      "alarm",
+      "knx",
+      "security"
+    ],
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "mode": "daemon",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/ToSchu41/ioBroker.alarm-control/main/admin/alarm-control.svg",
+    "icon": "alarm-control.svg",
+    "readme": "https://github.com/ToSchu41/ioBroker.alarm-control/blob/main/README.md",
+    "loglevel": "info",
+    "type": "logic",
+    "connectionType": "local",
+    "dataSource": "push",
+    "compact": true,
+    "adminUI": {
+      "config": "json"
+    },
+    "supportedMessages": {},
+    "dependencies": [
+      {
+        "js-controller": ">=6.0.11"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.6.17"
+      }
+    ]
+  },
+  "native": {
+    "areas": [
+      {
+        "id": "haus",
+        "name": "Haus",
+        "exitSeconds": 30
+      },
+      {
+        "id": "garage",
+        "name": "Garage",
+        "exitSeconds": 30
+      }
+    ],
+    "sensors": [],
+    "sirens": [
+      {
+        "id": "sirene1",
+        "name": "Innensirene 1",
+        "enabled": false,
+        "stateId": "",
+        "area": "*",
+        "inverted": false,
+        "durationSeconds": 120
+      },
+      {
+        "id": "sirene2",
+        "name": "Innensirene 2",
+        "enabled": false,
+        "stateId": "",
+        "area": "*",
+        "inverted": false,
+        "durationSeconds": 120
+      }
+    ],
+    "recipients": [],
+    "telegramEnabled": false,
+    "telegramInstance": "telegram.0",
+    "telegramUser": "",
+    "asteriskEnabled": false,
+    "asteriskInstance": "asterisk.0"
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "Adapter bereit",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    }
+  ]
+}
