@@ -93,4 +93,6 @@ test('invalid configuration and overlapping outputs are rejected', () => {
     assert.throws(() => validate({ ...f.config, sirens: [{ ...defaults.sirens[0], enabled: true, stateId: 'knx.0.window' }] }));
     assert.equal(active({ activeValue: 'false' }, { val: false }), true);
     assert.equal(active({ activeValue: 'true' }, { val: 'true' }), null);
+    assert.equal(active({ activeValue: 'true' }, { val: 1 }), null);
+    assert.equal(active({ activeValue: '1' }, { val: true }), null);
 });
