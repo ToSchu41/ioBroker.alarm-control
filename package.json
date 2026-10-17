@@ -1,14 +1,36 @@
 {
   "name": "iobroker.alarm-control",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Area-based alarm control using existing ioBroker sensors",
   "main": "main.js",
   "author": "ToSchu41",
   "license": "MIT",
-  "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test", "check": "node --check main.js && node --check lib/engine.js && node --check lib/config.js" },
-  "dependencies": { "@iobroker/adapter-core": "^3.2.3" },
-  "files": ["main.js", "lib/", "admin/", "io-package.json", "README.md", "LICENSE"],
-  "repository": { "type": "git", "url": "https://github.com/ToSchu41/ioBroker.alarm-control.git" },
-  "keywords": ["ioBroker", "alarm", "knx", "security"]
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check main.js && node --check lib/engine.js && node --check lib/config.js && node --check lib/notifications.js"
+  },
+  "dependencies": {
+    "@iobroker/adapter-core": "^3.2.3"
+  },
+  "files": [
+    "main.js",
+    "lib/",
+    "admin/",
+    "io-package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ToSchu41/ioBroker.alarm-control.git"
+  },
+  "keywords": [
+    "ioBroker",
+    "alarm",
+    "knx",
+    "security"
+  ]
 }

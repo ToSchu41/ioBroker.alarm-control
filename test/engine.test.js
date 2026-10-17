@@ -96,3 +96,87 @@ test('invalid configuration and overlapping outputs are rejected', () => {
     assert.equal(active({ activeValue: 'true' }, { val: 1 }), null);
     assert.equal(active({ activeValue: '1' }, { val: true }), null);
 });
+
+test('tamper is immediate while disarmed and cannot be bypassed by disable', () => {
+    const f = fixture({ tamperStateId: 'knx.0.tamper', holdSeconds: 20, entrySeconds: 30, hits: 5, enabled: false });
+    f.engine.update('knx.0.tamper', { val: true });
+    assert.equal(f.alarms().length, 1); assert.equal(f.alarms()[0].kind, 'tamper');
+    assert.equal(f.engine.areas.get('haus').mode, 'disarmed');
+    assert.equal(f.engine.sensorStatus(f.engine.sensors.get('window')), 'disable');
+    f.engine.update('knx.0.tamper', { val: true }); assert.equal(f.alarms().length, 1);
+    assert.throws(() => f.engine.reset('haus'), /Sabotagekontakt/);
+    f.engine.command('haus', 'disarmed'); assert.equal(f.engine.areas.get('haus').alarm, true);
+    f.engine.update('knx.0.tamper', { val: false }); assert.equal(f.engine.areas.get('haus').alarm, true);
+    f.engine.reset('haus'); assert.equal(f.engine.areas.get('haus').alarm, false);
+    f.engine.update('knx.0.tamper', { val: true }); assert.equal(f.alarms().length, 2);
+});
+test('unknown tamper blocks arming even for a disabled inside sensor in home mode', () => {
+    const f = fixture({ tamperStateId: 'knx.0.tamper', enabled: false, zone: 'inside' });
+    f.update(false);
+    assert.match(f.engine.blockers('haus', 'home')[0], /Sabotagekontakt unbekannt/);
+    assert.throws(() => f.engine.command('haus', 'home'));
+    f.engine.update('knx.0.tamper', { val: false }); assert.equal(f.engine.blockers('haus', 'home').length, 0);
+});
+test('tamper bypasses exit and entry countdowns and can escalate an intrusion alarm', () => {
+    const f = fixture({ tamperStateId: 'knx.0.tamper', entrySeconds: 20 });
+    f.update(false); f.engine.update('knx.0.tamper', { val: false }); f.engine.command('haus', 'away');
+    f.update(true); assert.equal(f.engine.areas.get('haus').phase, 'entry');
+    f.engine.update('knx.0.tamper', { val: true }); f.tick(30000);
+    assert.equal(f.alarms().length, 1); assert.equal(f.alarms()[0].kind, 'tamper');
+    assert.equal(f.timers.size, 0);
+});
+test('disabling sensor cancels its pending entry but does not clear an existing alarm', () => {
+    const f = fixture({ entrySeconds: 10 }); f.update(false); f.engine.command('haus', 'away'); f.update(true);
+    f.engine.setEnabled('window', false); f.tick(10000); assert.equal(f.alarms().length, 0);
+    assert.equal(f.engine.sensorStatus(f.engine.sensors.get('window')), 'disable');
+    f.engine.setEnabled('window', true); f.tick(10000); assert.equal(f.alarms().length, 1);
+    f.engine.setEnabled('window', false); assert.equal(f.engine.areas.get('haus').alarm, true);
+});
+test('blocked commands and exit-delay failures emit informative events', () => {
+    const f = fixture(); f.update(true);
+    assert.throws(() => f.engine.command('haus', 'away'));
+    const first = f.events.find(e => e.kind === 'blocked');
+    assert.equal(first.requestedMode, 'away'); assert.match(first.blocked[0], /Fenster/);
+    f.update(false); f.engine.areas.get('haus').config.exitSeconds = 5; f.engine.command('haus', 'away');
+    assert.equal(f.events.filter(e => e.kind === 'armed').length, 0);
+    f.update(true); f.tick(5000); assert.equal(f.events.filter(e => e.kind === 'blocked').length, 2);
+});
+test('mode info is emitted only for actual completion and disarming', () => {
+    const f = fixture(); f.update(false); f.engine.areas.get('haus').config.exitSeconds = 5;
+    f.engine.command('haus', 'away'); f.tick(5000); f.engine.command('haus', 'away');
+    f.engine.command('haus', 'disarmed'); f.engine.command('haus', 'disarmed');
+    assert.equal(f.events.filter(e => e.kind === 'armed').length, 1);
+    assert.equal(f.events.filter(e => e.kind === 'disarmed').length, 1);
+});
+test('panic is latched and must be reset before another activation', () => {
+    const f = fixture(); f.engine.panic(); f.engine.panic();
+    assert.equal(f.events.filter(e => e.type === 'panic').length, 1);
+    f.engine.resetPanic(); f.engine.panic();
+    assert.equal(f.events.filter(e => e.type === 'panic').length, 2);
+    f.engine.close(); f.engine.resetPanic(); f.engine.panic();
+    assert.equal(f.engine.panicActive, false);
+});
+
+test('a second delayed sensor can shorten the countdown and disabling it preserves the first deadline', () => {
+    const f = fixture({ entrySeconds: 20 });
+    const second = { ...f.config.sensors[0], id: 'door', stateId: 'knx.0.door', entrySeconds: 5 };
+    f.config.sensors.push(second);
+    // Reuse the same simulated clock for an engine containing both sensors.
+    const events = [];
+    const e = new Engine(f.config, event => events.push(event), f.engine.clock);
+    e.update('knx.0.window', { val: false }); e.update('knx.0.door', { val: false }); e.command('haus', 'away');
+    e.update('knx.0.window', { val: true }); f.tick(2000); e.update('knx.0.door', { val: true });
+    assert.equal(e.areas.get('haus').entrySensor, 'door');
+    e.setEnabled('door', false); assert.equal(e.areas.get('haus').entrySensor, 'window');
+    f.tick(17999); assert.equal(events.filter(x => x.type === 'alarm').length, 0);
+    f.tick(1); assert.equal(events.filter(x => x.type === 'alarm')[0].sensor, 'window');
+});
+
+test('shorter sensor deadline triggers at its own time', () => {
+    const f = fixture({ entrySeconds: 20 });
+    f.config.sensors.push({ ...f.config.sensors[0], id: 'door', stateId: 'knx.0.door', entrySeconds: 5 });
+    const events = [], e = new Engine(f.config, event => events.push(event), f.engine.clock);
+    e.update('knx.0.window', { val: false }); e.update('knx.0.door', { val: false }); e.command('haus', 'away');
+    e.update('knx.0.window', { val: true }); f.tick(2000); e.update('knx.0.door', { val: true }); f.tick(5000);
+    assert.equal(events.filter(x => x.type === 'alarm')[0].sensor, 'door');
+});

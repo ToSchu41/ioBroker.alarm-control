@@ -47,7 +47,7 @@
       "items": {
         "hint": {
           "type": "staticText",
-          "text": "Bestehenden KNX-Datenpunkt auswählen. Bereich: ID aus der Bereichstabelle. Mehrfachauslösung zählt neue Aktivierungen nach Rückkehr in Ruhelage. Aktivwert muss zum Datentyp passen."
+          "text": "enable unter areas.<Bereich>.sensors.<Sensor> schaltet die Einbruchsauswertung. Die Tabelle legt den Startwert für neue Sensoren fest. Gespeicherte enable-Werte bleiben bei Neustart erhalten. Sabotagekontakte bleiben auch bei deaktivierter Einbruchsauswertung rund um die Uhr überwacht."
         },
         "sensors": {
           "type": "table",
@@ -61,7 +61,7 @@
           "items": [
             {
               "attr": "enabled",
-              "title": "Aktiv",
+              "title": "Anfangswert enable",
               "type": "checkbox",
               "default": true
             },
@@ -163,8 +163,45 @@
               "default": 0,
               "min": 0,
               "max": 3600
+            },
+            {
+              "type": "objectId",
+              "attr": "tamperStateId",
+              "title": "Sabotagekontakt (optional)",
+              "default": ""
+            },
+            {
+              "type": "select",
+              "attr": "tamperActiveValue",
+              "title": "Sabotage-Aktivwert",
+              "default": "true",
+              "options": [
+                {
+                  "value": "true",
+                  "label": "true (Boolean)"
+                },
+                {
+                  "value": "false",
+                  "label": "false (Boolean)"
+                },
+                {
+                  "value": "1",
+                  "label": "1 (Zahl)"
+                },
+                {
+                  "value": "0",
+                  "label": "0 (Zahl)"
+                }
+              ]
             }
-          ]
+          ],
+          "useCardFor": [
+            "xs",
+            "sm",
+            "md"
+          ],
+          "titleAttribute": "name",
+          "clone": true
         }
       }
     },
@@ -237,23 +274,28 @@
       "items": {
         "telegramEnabled": {
           "type": "checkbox",
-          "label": "Telegram aktiv"
+          "label": "Telegram aktiv",
+          "default": false
         },
         "telegramInstance": {
           "type": "text",
-          "label": "Telegram-Instanz (z. B. telegram.0)"
+          "label": "Telegram-Instanz (z. B. telegram.0)",
+          "default": "telegram.0"
         },
         "telegramUser": {
           "type": "text",
-          "label": "Telegram-Benutzer (leer = alle im Telegram-Adapter)"
+          "label": "Telegram-Benutzer (leer = alle im Telegram-Adapter)",
+          "default": ""
         },
         "asteriskEnabled": {
           "type": "checkbox",
-          "label": "Telefonanruf aktiv"
+          "label": "Telefonanruf aktiv",
+          "default": false
         },
         "asteriskInstance": {
           "type": "text",
-          "label": "Asterisk-Instanz (z. B. asterisk.0)"
+          "label": "Asterisk-Instanz (z. B. asterisk.0)",
+          "default": "asterisk.0"
         },
         "hint": {
           "type": "staticText",
@@ -297,6 +339,261 @@
               "default": "*"
             }
           ]
+        },
+        "notifyModeChanges": {
+          "type": "checkbox",
+          "label": "Aktivierung, Deaktivierung und Rücksetzung per Telegram melden",
+          "default": true
+        },
+        "notifyArming": {
+          "type": "checkbox",
+          "label": "Auch Beginn der Ausgangsverzögerung per Telegram melden",
+          "default": false
+        },
+        "notifyBlocked": {
+          "type": "checkbox",
+          "label": "Verhinderte Aktivierung mit blockierenden Sensoren per Telegram melden",
+          "default": true
+        },
+        "notifySensorChanges": {
+          "type": "checkbox",
+          "label": "Aktivieren/Deaktivieren einzelner Sensoren per Telegram melden",
+          "default": true
+        },
+        "testHint": {
+          "type": "staticText",
+          "text": "Vor dem Test speichern und Adapterneustart abwarten. Die Tests verwenden ausschließlich gespeicherte Einstellungen. Testanruf ruft alle aktivierten eindeutigen Telefonnummern an, unabhängig vom Bereich. Keine Sirene oder Szene wird beim Test geschaltet."
+        },
+        "testTelegram": {
+          "type": "sendTo",
+          "label": "Telegram-Testnachricht senden",
+          "command": "testTelegram",
+          "data": {},
+          "showProcess": true,
+          "timeout": 125000,
+          "disabled": "!_alive",
+          "variant": "outlined"
+        },
+        "testPhone": {
+          "type": "sendTo",
+          "label": "Testanruf an aktivierte Telefonnummern",
+          "command": "testPhone",
+          "data": {},
+          "showProcess": true,
+          "timeout": 125000,
+          "disabled": "!_alive",
+          "variant": "outlined"
+        },
+        "testResult": {
+          "type": "state",
+          "label": "Letztes Testergebnis",
+          "oid": "info.testResult",
+          "xs": 12
+        }
+      }
+    },
+    "templatesTab": {
+      "type": "panel",
+      "label": "Nachrichtentexte",
+      "items": {
+        "hint": {
+          "type": "staticText",
+          "text": "Platzhalter: {sensor_name}, {sensor_id}, {bereich}, {bereich_id}, {zustand}, {modus}, {ereignis}, {grund}, {offene_sensoren}, {deaktivierte_sensoren}, {zone}, {zeit}, {datum}, {timestamp}, {instanz}. Telegram wird als Klartext gesendet. Telefontext wird nur bei Alarm, Sabotage, Panik und Testanruf verwendet."
+        },
+        "templateAlarm": {
+          "type": "text",
+          "label": "Einbruchalarm",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "Alarm in {bereich}: {sensor_name} ({zone}). Zustand: {zustand}. {zeit}"
+        },
+        "templateTamper": {
+          "type": "text",
+          "label": "Sabotagealarm",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "Sabotage in {bereich}: {sensor_name}. Zustand: {zustand}. {zeit}"
+        },
+        "templatePanic": {
+          "type": "text",
+          "label": "Panik",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "PANIK ausgelöst! {zeit}"
+        },
+        "templateArming": {
+          "type": "text",
+          "label": "Aktivierung läuft",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}"
+        },
+        "templateArmed": {
+          "type": "text",
+          "label": "Aktiviert",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}"
+        },
+        "templateDisarmed": {
+          "type": "text",
+          "label": "Deaktiviert",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Anlage deaktiviert. {grund}"
+        },
+        "templateBlocked": {
+          "type": "text",
+          "label": "Aktivierung verhindert",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Aktivierung verhindert ({modus}). {grund}. Blockierende Sensoren: {offene_sensoren}"
+        },
+        "templateSensorChanged": {
+          "type": "text",
+          "label": "Sensor aktiviert/deaktiviert",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Sensor {sensor_name} ist {zustand}."
+        },
+        "templateTamperRestored": {
+          "type": "text",
+          "label": "Sabotagekontakt wieder normal",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Sabotagekontakt von {sensor_name} wieder normal. Gespeicherten Alarm zurücksetzen."
+        },
+        "templateReset": {
+          "type": "text",
+          "label": "Alarm zurückgesetzt",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Alarm zurückgesetzt."
+        },
+        "templatePanicReset": {
+          "type": "text",
+          "label": "Panik zurückgesetzt",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "Panik zurückgesetzt. {zeit}"
+        },
+        "templateTest": {
+          "type": "text",
+          "label": "Testnachricht",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "Testnachricht von {instanz}. {zeit}"
+        },
+        "templatePhone": {
+          "type": "text",
+          "label": "Telefonansage",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{ereignis} {bereich}. {sensor_name}. {grund}"
+        }
+      }
+    },
+    "panicTab": {
+      "type": "panel",
+      "label": "Panik und Sabotage",
+      "items": {
+        "hint": {
+          "type": "staticText",
+          "text": "Panik aus VIS: panic.trigger = true. Aktiv bis panic.reset = true; erneute Auslösung erst nach Rücksetzung. Optional externer Panikeingang. Szene wird einmalig mit true aktiviert; Rücksetzung macht die Szene nicht rückgängig. Sabotage löst unabhängig vom Modus sofort aus."
+        },
+        "panicStateId": {
+          "type": "objectId",
+          "label": "Externer Panikeingang (optional)",
+          "default": ""
+        },
+        "panicActiveValue": {
+          "type": "select",
+          "label": "Panik-Aktivwert",
+          "options": [
+            {
+              "value": "true",
+              "label": "true (Boolean)"
+            },
+            {
+              "value": "false",
+              "label": "false (Boolean)"
+            },
+            {
+              "value": "1",
+              "label": "1 (Zahl)"
+            },
+            {
+              "value": "0",
+              "label": "0 (Zahl)"
+            }
+          ],
+          "default": "true"
+        },
+        "panicSceneId": {
+          "type": "objectId",
+          "label": "Panikszene (schreibbarer boolescher scene.0.… Datenpunkt)",
+          "default": ""
+        },
+        "panicSirens": {
+          "type": "checkbox",
+          "label": "Bei Panik alle aktivierten Sirenen einschalten",
+          "default": true
+        },
+        "tamperSirens": {
+          "type": "checkbox",
+          "label": "Bei Sabotage zugeordnete Sirenen einschalten",
+          "default": true
+        },
+        "historyLimit": {
+          "type": "number",
+          "label": "Maximale Anzahl Ereignisse im Protokoll",
+          "min": 10,
+          "max": 1000,
+          "default": 100
+        },
+        "timeZone": {
+          "type": "text",
+          "label": "Zeitzone für Nachrichten (z. B. Europe/Berlin)",
+          "default": "Europe/Berlin"
         }
       }
     }
