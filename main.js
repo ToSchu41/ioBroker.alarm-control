@@ -3,6 +3,7 @@ const utils = require('@iobroker/adapter-core');
 const { Engine } = require('./lib/engine');
 const { validate, active } = require('./lib/config');
 const { render } = require('./lib/notifications');
+const panic = require('./lib/panic');
 
 class AlarmControl extends utils.Adapter {
     constructor(options = {}) {
@@ -76,16 +77,17 @@ class AlarmControl extends utils.Adapter {
         await this.subscribeStatesAsync('areas.*'); await this.subscribeStatesAsync('panic.*');
         // Reset outputs first; active sabotage circuits in the snapshot can then raise a fresh alarm.
         await this.writeSirens();
-        for (const id of inputIds) this.updateInput(id, await this.getForeignStateAsync(id));
+        for (const id of inputIds) this.updateInput(id, await this.getForeignStateAsync(id), true);
         for (const a of c.areas) this.engine.publish(a.id);
         this.initialized = true;
         await this.put('info.connection', true);
     }
-    updateInput(id, state) {
+    updateInput(id, state, initial = false) {
         if (id === this.settings.panicStateId) {
             const previous = this.panicInput;
-            this.panicInput = active({ activeValue: this.settings.panicActiveValue }, state);
-            if (this.panicInput === true && previous !== true) this.engine.panic();
+            this.panicInput = panic.value(state);
+            // A persisted startup value is a baseline, not a new button press.
+            if (!initial && panic.triggered(this.settings.panicTriggerMode, previous, this.panicInput)) this.engine.panic();
         } else this.engine.update(id, state);
     }
     async changed(id, state) {
@@ -98,7 +100,7 @@ class AlarmControl extends utils.Adapter {
                 if (state.val === true) {
                     if (local === 'panic.trigger') this.engine.panic();
                     else {
-                        if (this.settings.panicStateId && this.panicInput !== false) throw new Error('Panikeingang aktiv oder unbekannt');
+                        if (this.settings.panicStateId && !panic.canReset(this.settings.panicTriggerMode, this.panicInput)) throw new Error('Panikeingang aktiv oder unbekannt; für die konfigurierte Flanke zuerst in Ruhelage bringen');
                         this.engine.resetPanic();
                     }
                 }

@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "titleLang": {
       "en": "Alarm Control",
       "de": "Alarmsteuerung"
@@ -46,6 +46,10 @@
     ],
     "messagebox": true,
     "news": {
+      "0.2.2": {
+        "de": "Auslöseart für externen Panikeingang wählbar, auch wiederholte true-Telegramme",
+        "en": "Selectable panic input modes including repeated true updates"
+      },
       "0.2.1": {
         "de": "Panikszene: Datentyp mixed unterstützen und Szenenbereitschaft prüfen",
         "en": "Fix mixed scene activation and check scene readiness"
@@ -119,7 +123,8 @@
     "telegramInstance": "telegram.0",
     "telegramUser": "",
     "asteriskEnabled": false,
-    "asteriskInstance": "asterisk.0"
+    "asteriskInstance": "asterisk.0",
+    "panicTriggerMode": "rising"
   },
   "objects": [],
   "instanceObjects": [

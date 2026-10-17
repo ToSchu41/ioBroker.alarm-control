@@ -545,28 +545,36 @@
           "label": "Externer Panikeingang (optional)",
           "default": ""
         },
-        "panicActiveValue": {
+        "panicTriggerMode": {
           "type": "select",
-          "label": "Panik-Aktivwert",
+          "label": "Auslöseart des externen Panik-Datenpunkts",
+          "default": "rising",
           "options": [
             {
+              "value": "update",
+              "label": "Jede Aktualisierung (0/1 bzw. false/true)"
+            },
+            {
               "value": "true",
-              "label": "true (Boolean)"
+              "label": "Wert true / 1 (auch wiederholte Aktualisierung)"
             },
             {
               "value": "false",
-              "label": "false (Boolean)"
+              "label": "Wert false / 0 (auch wiederholte Aktualisierung)"
             },
             {
-              "value": "1",
-              "label": "1 (Zahl)"
+              "value": "rising",
+              "label": "Steigende Flanke 0 → 1 / false → true"
             },
             {
-              "value": "0",
-              "label": "0 (Zahl)"
+              "value": "falling",
+              "label": "Fallende Flanke 1 → 0 / true → false"
             }
-          ],
-          "default": "true"
+          ]
+        },
+        "panicTriggerHint": {
+          "type": "staticText",
+          "text": "Für KNX-Taster, die bei jedem Druck true senden und nie auf false zurückkehren: Wert true / 1 wählen. Panik kann in diesem Modus auch bei anliegendem true zurückgesetzt werden. Erst die nächste Aktualisierung löst erneut aus. Solange Panik gespeichert ist, werden weitere Auslösungen unterdrückt. Gespeicherte Startwerte lösen keine Panik aus."
         },
         "panicSceneId": {
           "type": "objectId",

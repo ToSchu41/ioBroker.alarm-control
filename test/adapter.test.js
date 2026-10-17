@@ -206,3 +206,41 @@ test('empty scenes and virtual groups are rejected', async () => {
     await assert.rejects(() => a.activatePanicScene(), /virtuelle Gruppe/);
     assert.equal(a.writes.length, 0);
 });
+
+test('KNX true-only button can reset while still true and trigger again on the next true update', async () => {
+    const a = fixture(); a.config = structuredClone(defaults);
+    Object.assign(a.config, { panicStateId: 'knx.0.panicButton', panicTriggerMode: 'true', panicSceneId: 'scene.0.Panik', panicSirens: false });
+    a.foreign.set('knx.0.panicButton', { val: true, ack: true, ts: 1, lc: 1 });
+    await a.ready(); await a.queue;
+    assert.equal(a.engine.panicActive, false); assert.equal(a.writes.length, 0);
+    await a.changed('knx.0.panicButton', { val: true, ack: true, ts: 2, lc: 1 }); await a.queue;
+    assert.equal(a.engine.panicActive, true); assert.equal(a.writes.length, 1);
+    await a.changed('knx.0.panicButton', { val: true, ack: true, ts: 3, lc: 1 }); await a.queue;
+    assert.equal(a.writes.length, 1); // The alarm itself stays latched.
+    await a.changed('alarm-control.0.panic.reset', { val: true, ack: false }); await a.queue;
+    assert.equal(a.engine.panicActive, false); assert.equal(a.writes.length, 1);
+    await a.changed('knx.0.panicButton', { val: true, ack: true, ts: 4, lc: 1 }); await a.queue;
+    assert.equal(a.engine.panicActive, true); assert.equal(a.writes.length, 2); a.engine.close();
+});
+
+test('external falling edge requires 1 to 0 and permits reset only at 1', async () => {
+    const a = fixture(); a.config = structuredClone(defaults);
+    Object.assign(a.config, { panicStateId: 'knx.0.panicButton', panicTriggerMode: 'falling', panicSirens: false });
+    a.foreign.set('knx.0.panicButton', { val: 0 }); await a.ready(); await a.queue;
+    await a.changed('knx.0.panicButton', { val: 0 }); await a.queue; assert.equal(a.engine.panicActive, false);
+    await a.changed('knx.0.panicButton', { val: 1 }); await a.queue;
+    await a.changed('knx.0.panicButton', { val: 0 }); await a.queue; assert.equal(a.engine.panicActive, true);
+    await assert.rejects(() => a.changed('alarm-control.0.panic.reset', { val: true, ack: false }), /Ruhelage/);
+    await a.changed('knx.0.panicButton', { val: 1 }); await a.queue;
+    await a.changed('alarm-control.0.panic.reset', { val: true, ack: false }); await a.queue;
+    assert.equal(a.engine.panicActive, false); a.engine.close();
+});
+
+test('all external trigger modes seed startup values without treating them as a button event', async () => {
+    for (const mode of ['update', 'true', 'false', 'rising', 'falling']) {
+        const a = fixture(); a.config = structuredClone(defaults);
+        Object.assign(a.config, { panicStateId: 'knx.0.panicButton', panicTriggerMode: mode, panicSirens: false });
+        a.foreign.set('knx.0.panicButton', { val: mode === 'false' || mode === 'falling' ? false : true });
+        await a.ready(); await a.queue; assert.equal(a.engine.panicActive, false, mode); a.engine.close();
+    }
+});

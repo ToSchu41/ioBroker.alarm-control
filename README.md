@@ -1,6 +1,6 @@
 # ioBroker.alarm-control
 
-Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.2.1**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
+Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.2.2**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
 
 ## Funktionen
 
@@ -45,7 +45,7 @@ iobroker start alarm-control.0
 iobroker version alarm-control
 ```
 
-Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.2.1` zeigen.
+Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.2.2` zeigen.
 
 3. Admin im Browser vollständig neu laden und die Instanzeinstellungen öffnen. Neue Optionen kontrollieren und speichern, danach den Adapterneustart abwarten.
 4. Sensorstatus und Sabotagekontakte prüfen; anschließend über **Benachrichtigungen** die Testnachricht und Testanrufe auslösen.
@@ -53,7 +53,7 @@ Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und ans
 
 Bestehende Bereichs-, Sensor-, Sirenen- und Empfängertabellen bleiben erhalten. Die Laufzeit ergänzt fehlende neue Optionen mit Standardwerten, ohne die vorhandene Konfiguration zu ersetzen. Neue Sensorobjekte werden automatisch angelegt. Gespeicherte `enable`-Werte bleiben erhalten. Bereichs- und Sensor-IDs nicht ändern, wenn VIS-Verknüpfungen bestehen bleiben sollen.
 
-**Nach jedem Adapterstart ist die Einbruchsüberwachung unscharf.** Ein beim Start aktiver Sabotagekontakt oder externer Panikeingang löst trotzdem unmittelbar aus. Während des Updates läuft diese Softwareüberwachung nicht.
+**Nach jedem Adapterstart ist die Einbruchsüberwachung unscharf.** Ein beim Start aktiver Sabotagekontakt löst trotzdem unmittelbar aus. Der gespeicherte Wert eines externen Panikeingangs dient seit 0.2.2 nur als Ausgangswert; erst ein neues Telegramm kann Panik auslösen. Während des Updates läuft diese Softwareüberwachung nicht.
 
 Alternativ im Admin die benutzerdefinierte Installation über die GitHub-URL für den bereits installierten Adapter verwenden, anschließend gegebenenfalls **Upload** ausführen und die vorhandene Instanz starten. Die CLI-Variante oben ist unabhängig von der Anordnung der Schaltflächen in der Admin-Version.
 
@@ -159,7 +159,25 @@ Für die Szene den schreibbaren Aktivierungsdatenpunkt des Szenenadapters wähle
 
 Bei jeder neuen Panikauslösung wird `true` mit `ack=false` geschrieben, auch wenn der Szenenwert bereits `true` war. Der Szenenadapter wertet diesen Schreibbefehl als erneute Aktivierung aus. Der Alarmadapter prüft vorher Szenenobjekt und Lebenszeichen der zuständigen Instanz. `panic.sceneStatus=requested` bestätigt einen erfolgreichen Schreibauftrag, **nicht** die physische Ausführung aller Aktionen. Dafür die Zielaktoren bzw. das Szenenadapter-Protokoll kontrollieren. Bei einem Fehler stehen Details in `panic.sceneLastResult` und `info.lastError`; Sirenen und Benachrichtigungen bleiben davon unabhängig.
 
-Panik bleibt bis `panic.reset=true` gespeichert. Wiederholte Auslösungen starten währenddessen keine weiteren Anruf-/Szenenaktionen. Ein konfigurierter externer Panikeingang muss zum Rücksetzen nachweislich in Ruhelage sein. Das Rücksetzen macht die Aktionen der Szene **nicht rückgängig** und storniert keine bereits angeforderten Anrufe.
+Panik bleibt bis `panic.reset=true` gespeichert. Wiederholte Auslösungen starten währenddessen keine weiteren Anruf-/Szenenaktionen. Das Rücksetzen macht die Aktionen der Szene **nicht rückgängig** und storniert keine bereits angeforderten Anrufe.
+
+### Auslöseart des externen Panik-Datenpunkts
+
+Unter **Panik und Sabotage** beim externen Panik-Datenpunkt eine Auslöseart wählen:
+
+| Einstellung | Auslösung |
+| --- | --- |
+| Jede Aktualisierung | Jedes neue gültige Telegramm, auch bei unverändertem Wert |
+| Wert true / 1 | Jedes neue Telegramm mit `true` oder `1`, auch wiederholt |
+| Wert false / 0 | Jedes neue Telegramm mit `false` oder `0`, auch wiederholt |
+| Steigende Flanke 0→1 | Wechsel von `false`/`0` auf `true`/`1` |
+| Fallende Flanke 1→0 | Wechsel von `true`/`1` auf `false`/`0` |
+
+**Für einen KNX-Taster, der bei jedem Tastendruck nur `true` sendet und nie auf `false` zurückkehrt, „Wert true / 1“ wählen.** In den drei aktualisierungsbasierten Modi kann Panik auch bei unverändert anliegendem Wert zurückgesetzt werden. Erst ein nachfolgendes Telegramm kann erneut auslösen; das Rücksetzen selbst erzeugt keine neue Panik.
+
+Bei Flankenmodi muss der Eingang zum Rücksetzen nachweislich in Ruhelage sein: `false`/`0` bei steigender und `true`/`1` bei fallender Flanke. Eine Flanke verlangt zwei bekannte gültige Zustände. Ein unbekannter Startwert oder ein fehlerhafter Wert wird nicht als Flanke interpretiert. Boolesche Werte und die Zahlen 0/1 werden unterstützt, Textwerte wie `"true"` nicht. Fehlende oder qualitativ fehlerhafte Telegramme lösen nicht aus.
+
+Der Startzustand wird in allen fünf Modi nur eingelesen und löst keine Panik aus. Bestehende Konfigurationen ohne neue Auslöseart werden anhand des bisherigen Aktivwerts ausgewertet: `true`/`1` als steigende, `false`/`0` als fallende Flanke. Beim erstmaligen Öffnen der neuen Einstellungen die gewünschte Auslöseart kontrollieren und speichern. Die VIS-Taste `panic.trigger` bleibt ein unabhängiger, automatisch bestätigter Auslöseknopf.
 
 ## Testnachricht und Testanruf
 
@@ -172,7 +190,7 @@ Tests lösen weder einen Alarm noch Sirenen oder Szenen aus. Parallele bzw. inne
 
 ## Grenzen und Prüfung
 
-- Nach Adapterstart sind Einbruchsbereiche unscharf und Panik zurückgesetzt. Aktive Sabotagekontakte und externe Panikeingänge werden aus dem Startzustand neu ausgewertet. Die Alarmmerker selbst werden nicht über Neustarts wiederhergestellt; das Ereignisprotokoll bleibt erhalten.
+- Nach Adapterstart sind Einbruchsbereiche unscharf und Panik zurückgesetzt. Aktive Sabotagekontakte werden aus dem Startzustand neu ausgewertet. Externe Panikeingänge benötigen ein neues Telegramm; gespeicherte Werte allein lösen nicht aus. Die Alarmmerker selbst werden nicht über Neustarts wiederhergestellt; das Ereignisprotokoll bleibt erhalten.
 - Veraltete, aber weiterhin gültig gespeicherte KNX-Werte werden noch nicht als Verbindungsfehler erkannt.
 - Bei Stromausfall oder Prozessabsturz kann die Software keinen Ausschaltbefehl senden. Eine erforderliche unabhängige Sirenenabschaltung gehört zusätzlich in den Aktor.
 - Telefonannahmeerkennung, DTMF-Quittierung und automatische Eskalationsketten sind nicht enthalten. Bereits angeforderte Nachrichten/Anrufe werden nicht zurückgerufen.
@@ -195,6 +213,10 @@ GitHub Actions führt Syntaxprüfung und Tests unter Node 20, 22 und 24 aus. Die
 - [Telegram-Dokumentation](https://github.com/iobroker-community-adapters/ioBroker.telegram/blob/master/docs/en/README.md): `sendTo(instance, 'send', { text, user })`.
 
 ## Changelog
+
+### 0.2.2
+
+Dropdown für Auslöseart des externen Panik-Datenpunkts: jede Aktualisierung, Wert true/false und steigende/fallende Flanke. Wiederholte identische KNX-Telegramme können auslösen. Ereignisbasierte Taster erlauben Rücksetzung ohne Rückkehr des Eingangswerts. Gespeicherte Startwerte lösen keine Panik aus.
 
 ### 0.2.1
 
