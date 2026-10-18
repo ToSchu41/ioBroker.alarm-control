@@ -7,7 +7,7 @@
       "items": {
         "hint": {
           "type": "staticText",
-          "text": "IDs unverändert lassen. Anwesend überwacht außen, Abwesend innen und außen. Moduswechsel über areas.<ID>.mode."
+          "text": "IDs unverändert lassen. Anwesend überwacht außen, Abwesend innen und außen. Moduswechsel über areas.<ID>.mode. Stiller Alarm wird anschließend über areas.<ID>.silentAlarm gesteuert und bleibt über Neustarts erhalten. Unterdrückt Bereichssirenen, nicht globale Panik oder Anforderungen anderer Bereiche."
         },
         "areas": {
           "type": "table",
@@ -36,6 +36,12 @@
               "default": 30,
               "min": 0,
               "max": 3600
+            },
+            {
+              "attr": "silentAlarm",
+              "title": "Stiller Alarm (Startwert)",
+              "type": "checkbox",
+              "default": false
             }
           ]
         }
@@ -47,7 +53,7 @@
       "items": {
         "hint": {
           "type": "staticText",
-          "text": "enable unter areas.<Bereich>.sensors.<Sensor> schaltet die Einbruchsauswertung. Die Tabelle legt den Startwert für neue Sensoren fest. Gespeicherte enable-Werte bleiben bei Neustart erhalten. Sabotagekontakte bleiben auch bei deaktivierter Einbruchsauswertung rund um die Uhr überwacht."
+          "text": "enable unter areas.<Bereich>.sensors.<Sensor> schaltet die Einbruchsauswertung. Die Tabelle legt den Startwert für neue Sensoren fest. Gespeicherte enable-Werte bleiben bei Neustart erhalten. Sabotagekontakte bleiben auch bei deaktivierter Einbruchsauswertung rund um die Uhr überwacht. Trigger: Wert true/false zählt passende Aktualisierungen, Flanke nur echte Wechsel. Offen ist der Zielwert: true/1 bei Wert true und Flanke 0 -> 1; false/0 bei Wert false und Flanke 1 -> 0. Sabotage-Aktivwert bleibt getrennt. Nach einem Update den Trigger je Sensor vor dem Speichern ausdrücklich auswählen. Bis dahin leitet die Laufzeit ihn aus dem bisherigen Alarmwert ab."
         },
         "sensors": {
           "type": "table",
@@ -103,28 +109,31 @@
               "default": "outside"
             },
             {
-              "attr": "activeValue",
-              "title": "Alarmwert",
               "type": "select",
+              "attr": "triggerMode",
+              "title": "Trigger",
+              "default": "",
               "options": [
                 {
-                  "value": "0",
-                  "label": "0 (Zahl)"
-                },
-                {
-                  "value": "1",
-                  "label": "1 (Zahl)"
-                },
-                {
                   "value": "true",
-                  "label": "true (Boolean)"
+                  "label": "Wert true"
                 },
                 {
                   "value": "false",
-                  "label": "false (Boolean)"
+                  "label": "Wert false"
+                },
+                {
+                  "value": "rising",
+                  "label": "Flanke 0 -> 1"
+                },
+                {
+                  "value": "falling",
+                  "label": "Flanke 1 -> 0"
                 }
               ],
-              "default": "true"
+              "validator": "['true', 'false', 'rising', 'falling'].includes(data.triggerMode)",
+              "validatorNoSaveOnError": true,
+              "validatorErrorText": "Trigger auswählen und Offen-Zustand prüfen"
             },
             {
               "attr": "blockArm",
@@ -398,7 +407,7 @@
       "items": {
         "hint": {
           "type": "staticText",
-          "text": "Platzhalter: {sensor_name}, {sensor_id}, {bereich}, {bereich_id}, {zustand}, {modus}, {ereignis}, {grund}, {offene_sensoren}, {deaktivierte_sensoren}, {zone}, {zeit}, {datum}, {timestamp}, {instanz}. Telegram wird als Klartext gesendet. Telefontext wird nur bei Alarm, Sabotage, Panik und Testanruf verwendet."
+          "text": "Platzhalter: {sensor_name}, {sensor_id}, {bereich}, {bereich_id}, {zustand}, {modus}, {ereignis}, {grund}, {offene_sensoren}, {deaktivierte_sensoren}, {zone}, {zeit}, {datum}, {timestamp}, {instanz}. Telegram wird als Klartext gesendet. Telefontext wird nur bei Alarm, Sabotage, Panik und Testanruf verwendet. Zusätzlich: {stiller_alarm}, {stiller_alarm_hinweis}. Beim Aktivieren wird ein Hinweis auf stillen Alarm auch an bestehende eigene Vorlagen angefügt, wenn der Hinweis-Platzhalter fehlt."
         },
         "templateAlarm": {
           "type": "text",
@@ -438,7 +447,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}"
+          "default": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}"
         },
         "templateArmed": {
           "type": "text",
@@ -448,7 +457,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}"
+          "default": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}"
         },
         "templateDisarmed": {
           "type": "text",
@@ -529,6 +538,16 @@
           "minRows": 2,
           "maxLength": 4000,
           "default": "{ereignis} {bereich}. {sensor_name}. {grund}"
+        },
+        "templateSilentChanged": {
+          "type": "text",
+          "label": "Stiller Alarm geändert",
+          "newLine": true,
+          "xs": 12,
+          "multiline": true,
+          "minRows": 2,
+          "maxLength": 4000,
+          "default": "{bereich}: Stiller Alarm {stiller_alarm}."
         }
       }
     },
@@ -552,29 +571,29 @@
           "options": [
             {
               "value": "update",
-              "label": "Jede Aktualisierung (0/1 bzw. false/true)"
+              "label": "Aktualisierung"
             },
             {
               "value": "true",
-              "label": "Wert true / 1 (auch wiederholte Aktualisierung)"
+              "label": "Wert true"
             },
             {
               "value": "false",
-              "label": "Wert false / 0 (auch wiederholte Aktualisierung)"
+              "label": "Wert false"
             },
             {
               "value": "rising",
-              "label": "Steigende Flanke 0 → 1 / false → true"
+              "label": "Flanke 0 -> 1"
             },
             {
               "value": "falling",
-              "label": "Fallende Flanke 1 → 0 / true → false"
+              "label": "Flanke 1 -> 0"
             }
           ]
         },
         "panicTriggerHint": {
           "type": "staticText",
-          "text": "Für KNX-Taster, die bei jedem Druck true senden und nie auf false zurückkehren: Wert true / 1 wählen. Panik kann in diesem Modus auch bei anliegendem true zurückgesetzt werden. Erst die nächste Aktualisierung löst erneut aus. Solange Panik gespeichert ist, werden weitere Auslösungen unterdrückt. Gespeicherte Startwerte lösen keine Panik aus."
+          "text": "Für KNX-Taster, die bei jedem Druck true senden: Wert true wählen. Zurücksetzen ist auch bei anliegendem true möglich. Erst die nächste Aktualisierung löst erneut aus. Während gespeicherter Panik keine erneuten Aktionen. Startwerte lösen keine Panik aus."
         },
         "panicSceneId": {
           "type": "objectId",

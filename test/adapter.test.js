@@ -244,3 +244,54 @@ test('all external trigger modes seed startup values without treating them as a 
         await a.ready(); await a.queue; assert.equal(a.engine.panicActive, false, mode); a.engine.close();
     }
 });
+
+test('silent area does not request intrusion or tamper sirens but keeps notifications and alarm state', async () => {
+    const a = fixture(); a.settings.telegramEnabled = true;
+    a.engine = { areas: new Map([['haus', { silentAlarm: true, alarm: true }]]), sensors: new Map() };
+    const notifications = []; a.dispatchNotification = e => notifications.push(e);
+    await a.event({ type: 'alarm', kind: 'alarm', area: 'haus', silentAlarm: true });
+    await a.event({ type: 'alarm', kind: 'tamper', area: 'haus', silentAlarm: true });
+    assert.equal(a.writes.length, 0); assert.equal(a.sounding.size, 0); assert.equal(notifications.length, 2);
+    assert.equal(a.engine.areas.get('haus').alarm, true);
+});
+
+test('a silent area cannot suppress another area or global panic on a shared siren', async () => {
+    const a = fixture();
+    a.engine = { areas: new Map([['haus', { silentAlarm: true }], ['garage', { silentAlarm: false }]]) };
+    await a.startSirens('haus'); assert.equal(a.writes.length, 0);
+    await a.startSirens('garage'); assert.equal(a.writes.at(-1).val, true);
+    await a.clearSirenArea('haus'); assert.equal(a.writes.at(-1).val, true);
+    await a.clearSirenArea('garage'); await a.startSirens('*'); assert.equal(a.writes.at(-1).val, true);
+});
+
+test('persisted silent mode is restored and runtime toggles stop sirens without resuming them on disable', async () => {
+    const a = fixture(); a.config = structuredClone(defaults);
+    a.config.sirens[0].enabled = true; a.config.sirens[0].stateId = 'knx.0.siren';
+    a.states.set('areas.haus.silentAlarm', { val: true, ack: true });
+    await a.ready(); await a.queue; assert.equal(a.engine.areas.get('haus').silentAlarm, true);
+    await a.changed('alarm-control.0.areas.haus.silentAlarm', { val: false, ack: false }); await a.queue;
+    await a.startSirens('haus'); assert.equal(a.writes.at(-1).val, true);
+    await a.changed('alarm-control.0.areas.haus.silentAlarm', { val: true, ack: false }); await a.queue;
+    assert.equal(a.writes.at(-1).val, false); assert.equal(a.sounding.size, 0);
+    await a.changed('alarm-control.0.areas.haus.silentAlarm', { val: false, ack: false }); await a.queue;
+    assert.equal(a.writes.at(-1).val, false); assert.equal(a.sounding.size, 0);
+    await assert.rejects(() => a.changed('alarm-control.0.areas.haus.silentAlarm', { val: 'true', ack: false }));
+    assert.deepEqual(a.states.get('areas.haus.silentAlarm'), { val: false, ack: true }); a.engine.close();
+});
+
+test('full silent alarm path sends arming hint and alarm to Telegram and phone without sounding sirens', async () => {
+    const a = fixture(); a.config = structuredClone(defaults);
+    a.config.areas[0].exitSeconds = 0; a.config.areas[0].silentAlarm = true;
+    a.config.sensors = [{ id: 'window', enabled: true, area: 'haus', zone: 'outside', stateId: 'knx.0.window', triggerMode: 'rising', blockArm: true, holdSeconds: 0, entrySeconds: 0, hits: 1, windowSeconds: 30 }];
+    a.config.sirens[0].enabled = true; a.config.sirens[0].stateId = 'knx.0.siren';
+    a.config.telegramEnabled = true; a.config.asteriskEnabled = true;
+    a.config.recipients = [{ id: 'one', enabled: true, area: '*', number: '+491234' }];
+    a.foreign.set('knx.0.window', { val: false }); await a.ready(); await a.queue;
+    await a.changed('alarm-control.0.areas.haus.mode', { val: 'away', ack: false }); await a.queue;
+    assert.ok(a.messages.some(m => m.command === 'send' && /Stiller Alarm aktiv/.test(m.message.text)));
+    await a.changed('knx.0.window', { val: true, ack: true }); await a.queue;
+    assert.equal(a.states.get('areas.haus.alarm').val, true);
+    assert.ok(a.messages.some(m => m.command === 'dial'));
+    assert.ok(a.messages.some(m => m.command === 'send' && /Alarm in Haus/.test(m.message.text)));
+    assert.ok(a.writes.every(w => !w.val)); assert.equal(a.sounding.size, 0); a.engine.close();
+});

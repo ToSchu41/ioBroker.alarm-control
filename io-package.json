@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "titleLang": {
       "en": "Alarm Control",
       "de": "Alarmsteuerung"
@@ -46,6 +46,10 @@
     ],
     "messagebox": true,
     "news": {
+      "0.3.0": {
+        "de": "Stiller Alarm pro Bereich, Sensortrigger und wertabhängige Scharfschaltblockade",
+        "en": "Per-area silent alarm, sensor triggers and value-aware arming blockers"
+      },
       "0.2.2": {
         "de": "Auslöseart für externen Panikeingang wählbar, auch wiederholte true-Telegramme",
         "en": "Selectable panic input modes including repeated true updates"
@@ -64,8 +68,8 @@
     "templateAlarm": "Alarm in {bereich}: {sensor_name} ({zone}). Zustand: {zustand}. {zeit}",
     "templateTamper": "Sabotage in {bereich}: {sensor_name}. Zustand: {zustand}. {zeit}",
     "templatePanic": "PANIK ausgelöst! {zeit}",
-    "templateArming": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}",
-    "templateArmed": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}",
+    "templateArming": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}",
+    "templateArmed": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}",
     "templateDisarmed": "{bereich}: Anlage deaktiviert. {grund}",
     "templateBlocked": "{bereich}: Aktivierung verhindert ({modus}). {grund}. Blockierende Sensoren: {offene_sensoren}",
     "templateSensorChanged": "{bereich}: Sensor {sensor_name} ist {zustand}.",
@@ -89,12 +93,14 @@
       {
         "id": "haus",
         "name": "Haus",
-        "exitSeconds": 30
+        "exitSeconds": 30,
+        "silentAlarm": false
       },
       {
         "id": "garage",
         "name": "Garage",
-        "exitSeconds": 30
+        "exitSeconds": 30,
+        "silentAlarm": false
       }
     ],
     "sensors": [],
@@ -124,7 +130,8 @@
     "telegramUser": "",
     "asteriskEnabled": false,
     "asteriskInstance": "asterisk.0",
-    "panicTriggerMode": "rising"
+    "panicTriggerMode": "rising",
+    "templateSilentChanged": "{bereich}: Stiller Alarm {stiller_alarm}."
   },
   "objects": [],
   "instanceObjects": [

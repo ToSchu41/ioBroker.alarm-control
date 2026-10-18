@@ -1,6 +1,6 @@
 # ioBroker.alarm-control
 
-Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.2.2**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
+Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.3.0**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
 
 ## Funktionen
 
@@ -10,6 +10,7 @@ Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsm
 - Optionale Sabotagekontakte mit sofortiger Überwachung rund um die Uhr, unabhängig vom Scharfschaltmodus.
 - Sensorchannels mit dauerhaft gespeichertem `enable`, Status, Sabotage- und Fehleranzeige.
 - Bereichsbezogene oder gemeinsam genutzte Sirenen mit Invertierung und Laufzeitbegrenzung.
+- Dauerhafter stiller Alarm pro Bereich, unabhängig vom Scharfschaltmodus, mit Telegram-Hinweis beim Aktivieren.
 - Telegram-Vorlagen für Alarm, Sabotage, Panik, Aktivierung, Deaktivierung, blockierte Aktivierung und weitere Ereignisse.
 - Anrufe an alle aktivierten passenden Telefonnummern. Doppelt eingetragene identische Nummern werden pro Ereignis nur einmal angefordert.
 - Panik aus VIS oder über einen optionalen externen Datenpunkt, mit frei wählbarer Szene und optionalen Sirenen.
@@ -45,9 +46,9 @@ iobroker start alarm-control.0
 iobroker version alarm-control
 ```
 
-Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.2.2` zeigen.
+Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.3.0` zeigen.
 
-3. Admin im Browser vollständig neu laden und die Instanzeinstellungen öffnen. Neue Optionen kontrollieren und speichern, danach den Adapterneustart abwarten.
+3. Admin im Browser vollständig neu laden und die Instanzeinstellungen öffnen. Beim Update auf 0.3.0 den **Trigger je Sensor ausdrücklich auswählen**, insbesondere bei offenem Zustand `false`/`0`. Bis dahin übernimmt die Laufzeit die bisherige Alarmwert-Polung als steigende bzw. fallende Flanke. Neue Optionen kontrollieren und speichern, danach den Adapterneustart abwarten.
 4. Sensorstatus und Sabotagekontakte prüfen; anschließend über **Benachrichtigungen** die Testnachricht und Testanrufe auslösen.
 5. Gewünschte Bereiche wieder scharfschalten.
 
@@ -60,7 +61,7 @@ Alternativ im Admin die benutzerdefinierte Installation über die GitHub-URL fü
 ## Einrichtung
 
 1. **Bereiche:** Namen, IDs und Ausgangsverzögerung eintragen. IDs beginnen mit einem kleinen Buchstaben und enthalten nur kleine Buchstaben, Ziffern und Unterstriche. Sie müssen pro Tabelle eindeutig sein.
-2. **Sensoren:** Bestehenden KNX-Datenpunkt auswählen, Bereichs-ID und Zone angeben. `true`/`false` sind boolesch, `1`/`0` sind Zahlen. Andere Werte oder abweichende Datentypen gelten als unbekannt. Der Tabellenwert „Anfangswert enable“ gilt für neu angelegte Sensorobjekte; anschließend steuert das Objekt `enable` den Sensor.
+2. **Sensoren:** Bestehenden KNX-Datenpunkt auswählen, Bereichs-ID, Zone und Trigger angeben. Sensortrigger behandeln `true` und `1` sowie `false` und `0` jeweils gleich; andere Werte gelten als unbekannt. Der Tabellenwert „Anfangswert enable“ gilt für neu angelegte Sensorobjekte; anschließend steuert das Objekt `enable` den Sensor. Für Sabotagekontakte gilt weiterhin der separat gewählte Aktivwert einschließlich Datentyp.
 3. **Sabotagekontakt:** Optional einen separaten Datenpunkt und dessen Sabotage-Aktivwert auswählen. Der Aktivwert bezeichnet den Fehler-/Sabotagefall, nicht den intakten Kontakt.
 4. **Sirenen:** Schreibbare boolesche KNX-Schaltkontakte auswählen und aktivieren. Bereich `*` bedeutet alle Bereiche. Anfangs sind 120 Sekunden Laufzeit eingestellt.
 5. **Benachrichtigungen:** Vorhandene Instanzen und Empfänger eintragen. `*` beim Telefonempfänger bedeutet alle Bereiche. Telegram-Benutzer leer bedeutet die im Telegram-Adapter vorgesehenen Benutzer. Alle aktivierten passenden Telefonnummern werden angefordert.
@@ -72,15 +73,43 @@ Alternativ im Admin die benutzerdefinierte Installation über die GitHub-URL fü
 
 Fensterkontakte gehören üblicherweise zur Außenzone, mit einer Aktivierung und Scharfschaltblockade bei offenem Kontakt. Bewegungsmelder gehören häufig zur Innenzone; ihre Scharfschaltblockade kann deaktiviert werden.
 
-`hits=2`, `windowSeconds=30`, `holdSeconds=0` verlangt zwei neue Aktivierungen innerhalb von 30 Sekunden. Unveränderte KNX-Telegramme zählen nicht. Zwischen Aktivierungen muss der Sensor in Ruhelage zurückkehren. Ein Melder mit langer eigener Nachlaufzeit eignet sich möglicherweise nicht für diese Einstellung.
+Für jeden Sensor gibt es vier Trigger:
+
+| Trigger | Auslösung | Offen/aktiv für die Scharfschaltblockade |
+| --- | --- | --- |
+| Wert true | Jedes gültige Telegramm mit `true`/`1`, auch bei unverändertem Wert | `true`/`1` |
+| Wert false | Jedes gültige Telegramm mit `false`/`0`, auch bei unverändertem Wert | `false`/`0` |
+| Flanke 0 -> 1 | Tatsächlicher Wechsel von `false`/`0` auf `true`/`1` | `true`/`1` |
+| Flanke 1 -> 0 | Tatsächlicher Wechsel von `true`/`1` auf `false`/`0` | `false`/`0` |
+
+**„Offen blockiert Scharfschalten“ verwendet den Zielzustand des Triggers.** Beispielsweise blockiert ein Fensterkontakt mit „Flanke 1 -> 0“ bei `false`/`0` und erlaubt die Aktivierung bei `true`/`1`. Dies gilt sowohl vor als auch nach der Ausgangsverzögerung. Der Sensorstatus `active` bezeichnet entsprechend den gewählten offenen Zustand und nicht grundsätzlich den Rohwert `true`.
+
+`hits=2`, `windowSeconds=30`, `holdSeconds=0` verlangt zwei qualifizierte Auslösungen innerhalb von 30 Sekunden. Bei **Wert-Triggern** zählen auch zwei passende Telegramme mit unverändertem Wert. Bei **Flanken-Triggern** muss der Sensor zwischen den Auslösungen in Ruhelage zurückkehren. Eine Rückkehr von unbekannt auf einen gültigen Wert ist keine echte Flanke. Für Sensoren gibt es keinen Trigger „Jede Aktualisierung“.
 
 `holdSeconds=2` verlangt zwei Sekunden durchgehende Aktivität. `entrySeconds=20` erlaubt nach erfüllter Sensorlogik 20 Sekunden zum Unscharfschalten. Das Schließen des Kontakts hebt die laufende Eingangsverzögerung nicht auf. Weitere Meldungen verlängern sie nicht. Jeder qualifizierte Sensor behält seine erste Frist; die kürzeste Frist entscheidet. Ein Sensor ohne Eingangsverzögerung löst sofort aus.
 
-`enable=false` blendet die Einbruchsauswertung dieses Sensors aus, entfernt seine Zählungen und Fristen und zeigt `status=disable`. Fristen anderer Sensoren bleiben bestehen. Ein bereits gespeicherter Alarm wird dadurch nicht gelöscht. Beim erneuten Aktivieren wird ein bereits aktiver Sensor im scharfen Bereich sofort anhand seiner konfigurierten Logik ausgewertet. Scharfschalten ohne einen einzigen aktiven Sensor für den gewählten Modus wird abgelehnt.
+Wiederholte passende Telegramme starten eine laufende Mindestaktivdauer nicht neu. Im Wert-Modus kann nach erfolgreicher Mindestaktivdauer ein weiteres Telegramm einen weiteren Zähldurchlauf beginnen.
+
+`enable=false` blendet die Einbruchsauswertung dieses Sensors aus, entfernt seine Zählungen und Fristen und zeigt `status=disable`. Fristen anderer Sensoren bleiben bestehen. Ein bereits gespeicherter Alarm wird dadurch nicht gelöscht. Beim Scharfschalten oder erneuten Aktivieren wird ein bereits aktiver Sensor nur bei **Wert-Triggern** anhand seiner Logik ausgewertet, sofern die Scharfschaltblockade dies erlaubt. Bei **Flanken-Triggern** wird keine künstliche Flanke erzeugt; erst ein tatsächlicher Wechsel löst aus. Scharfschalten ohne einen einzigen aktiven Sensor für den gewählten Modus wird abgelehnt.
+
+## Stiller Alarm pro Bereich
+
+Der Datenpunkt `areas.<Bereich>.silentAlarm` ist eine dauerhafte Einstellung:
+
+- `true`: Einbruch- und Sabotagealarme dieses Bereichs werden gespeichert und über die konfigurierten Benachrichtigungen gemeldet, fordern aber keine Sirenen an.
+- `false`: Neue Alarme dieses Bereichs dürfen wieder Sirenen anfordern.
+
+Der Wert bleibt nach Unscharfschalten, Rücksetzen und Adapterneustart erhalten. In der Bereichstabelle lässt sich der Anfangswert für ein neues Objekt vorgeben; anschließend steuert der Datenpunkt die Einstellung. Schreiben mit `ack=false`, beispielsweise `alarm-control.0.areas.haus.silentAlarm=true`.
+
+Beim Einschalten des stillen Alarms werden laufende Sirenenanforderungen des Bereichs beendet. Das Ausschalten startet bereits gespeicherte Alarme nicht erneut; dafür ist ein neuer Alarmzyklus nötig. Telegram und Telefonie funktionieren weiterhin. Änderungen des stillen Modus werden als Info protokolliert und bei aktivierten Informationsmeldungen über Telegram gemeldet.
+
+Beim Scharfschalten enthält die Telegram-Meldung den Hinweis **„Stiller Alarm aktiv: Sirenen dieses Bereichs bleiben aus.“** Auch eigene bestehende Vorlagen bekommen diesen Hinweis angehängt, wenn sie den Platzhalter `{stiller_alarm_hinweis}` nicht enthalten. Die Scharfschaltungs-Info muss unter Benachrichtigungen aktiviert sein.
+
+`silence` bleibt ein einmaliger Stummschaltbefehl und ist unabhängig von `silentAlarm`. Eine gemeinsame Sirene kann durch einen anderen, nicht stillen Bereich weiter angefordert werden. **Globale Panik folgt weiterhin der separaten Einstellung „Bei Panik alle aktivierten Sirenen einschalten“** und wird durch den stillen Modus eines Bereichs nicht unterdrückt.
 
 ## Sabotageverhalten und Rücksetzung
 
-Sabotage wird **auch bei unscharfer Anlage und bei `enable=false`** überwacht. Mindestaktivdauer, Mehrfachauslösung und Ein-/Ausgangsverzögerungen gelten für die Einbruchsmeldung, nicht für Sabotage. Ein Sabotagealarm wird sofort gespeichert, gemeldet und schaltet die zugeordneten Sirenen ein, sofern dies aktiviert ist. Pro Bereich wird bis zur Rücksetzung ein Sabotagealarm ausgelöst; ein bestehender Einbruchalarm kann zusätzlich zu einem Sabotagealarm eskalieren.
+Sabotage wird **auch bei unscharfer Anlage und bei `enable=false`** überwacht. Mindestaktivdauer, Mehrfachauslösung und Ein-/Ausgangsverzögerungen gelten für die Einbruchsmeldung, nicht für Sabotage. Ein Sabotagealarm wird sofort gespeichert, gemeldet und schaltet die zugeordneten Sirenen ein, sofern dies aktiviert und der Bereich nicht auf stillen Alarm gestellt ist. Pro Bereich wird bis zur Rücksetzung ein Sabotagealarm ausgelöst; ein bestehender Einbruchalarm kann zusätzlich zu einem Sabotagealarm eskalieren.
 
 Ein fehlender, ungültiger oder qualitativ fehlerhafter Sabotagewert erscheint als Fehler und verhindert die Scharfschaltung, auch wenn die Einbruchsauswertung deaktiviert oder die Innenzone im Anwesend-Modus ausgeblendet ist. Ein unbekannter Wert allein löst keinen Sabotagealarm aus.
 
@@ -104,6 +133,8 @@ Für jeden Nachrichtentyp gibt es eine eigene Vorlage. Texte werden als Klartext
 | `{zeit}` / `{datum}` | Datum und Uhrzeit / Datum in der eingestellten Zeitzone |
 | `{timestamp}` | ISO-Zeitstempel in UTC |
 | `{instanz}` | Adapterinstanz, z. B. `alarm-control.0` |
+| `{stiller_alarm}` | „aktiv“ oder „inaktiv“ für den betroffenen Bereich |
+| `{stiller_alarm_hinweis}` | Hinweis auf unterdrückte Bereichssirenen, sonst leer |
 
 Beispiele:
 
@@ -122,6 +153,7 @@ Alle Angaben relativ zu `alarm-control.0`. Schreibbefehle mit **`ack=false`** se
 | Datenpunkt | Funktion |
 | --- | --- |
 | `areas.haus.mode` | `disarmed`, `home` oder `away` schreiben; Garage entsprechend |
+| `areas.haus.silentAlarm` | Dauerhafter stiller Bereichsalarm: `true` / `false`, bleibt über Neustarts erhalten |
 | `areas.haus.status` | `disarmed`, `exit`, `armed`, `entry` oder `alarm` |
 | `areas.haus.alarm` | Gespeicherter Bereichsalarm |
 | `areas.haus.tamper` | Mindestens ein Sabotagekontakt aktuell aktiv |
@@ -167,13 +199,13 @@ Unter **Panik und Sabotage** beim externen Panik-Datenpunkt eine Auslöseart wä
 
 | Einstellung | Auslösung |
 | --- | --- |
-| Jede Aktualisierung | Jedes neue gültige Telegramm, auch bei unverändertem Wert |
-| Wert true / 1 | Jedes neue Telegramm mit `true` oder `1`, auch wiederholt |
-| Wert false / 0 | Jedes neue Telegramm mit `false` oder `0`, auch wiederholt |
-| Steigende Flanke 0→1 | Wechsel von `false`/`0` auf `true`/`1` |
-| Fallende Flanke 1→0 | Wechsel von `true`/`1` auf `false`/`0` |
+| Aktualisierung | Jedes neue gültige Telegramm, auch bei unverändertem Wert |
+| Wert true | Jedes neue Telegramm mit `true` oder `1`, auch wiederholt |
+| Wert false | Jedes neue Telegramm mit `false` oder `0`, auch wiederholt |
+| Flanke 0 -> 1 | Wechsel von `false`/`0` auf `true`/`1` |
+| Flanke 1 -> 0 | Wechsel von `true`/`1` auf `false`/`0` |
 
-**Für einen KNX-Taster, der bei jedem Tastendruck nur `true` sendet und nie auf `false` zurückkehrt, „Wert true / 1“ wählen.** In den drei aktualisierungsbasierten Modi kann Panik auch bei unverändert anliegendem Wert zurückgesetzt werden. Erst ein nachfolgendes Telegramm kann erneut auslösen; das Rücksetzen selbst erzeugt keine neue Panik.
+**Für einen KNX-Taster, der bei jedem Tastendruck nur `true` sendet und nie auf `false` zurückkehrt, „Wert true“ wählen.** In den drei aktualisierungsbasierten Modi kann Panik auch bei unverändert anliegendem Wert zurückgesetzt werden. Erst ein nachfolgendes Telegramm kann erneut auslösen; das Rücksetzen selbst erzeugt keine neue Panik.
 
 Bei Flankenmodi muss der Eingang zum Rücksetzen nachweislich in Ruhelage sein: `false`/`0` bei steigender und `true`/`1` bei fallender Flanke. Eine Flanke verlangt zwei bekannte gültige Zustände. Ein unbekannter Startwert oder ein fehlerhafter Wert wird nicht als Flanke interpretiert. Boolesche Werte und die Zahlen 0/1 werden unterstützt, Textwerte wie `"true"` nicht. Fehlende oder qualitativ fehlerhafte Telegramme lösen nicht aus.
 
@@ -213,6 +245,10 @@ GitHub Actions führt Syntaxprüfung und Tests unter Node 20, 22 und 24 aus. Die
 - [Telegram-Dokumentation](https://github.com/iobroker-community-adapters/ioBroker.telegram/blob/master/docs/en/README.md): `sendTo(instance, 'send', { text, user })`.
 
 ## Changelog
+
+### 0.3.0
+
+Dauerhafter stiller Alarm pro Bereich mit gespeicherten Datenpunkten und Telegram-Hinweis beim Scharfschalten. Sensortrigger Wert true/false und steigende/fallende Flanke mit passenden offenen Zuständen für die Scharfschaltblockade. Kurze Triggerbezeichnungen auch bei Panik. Wiederholte Telegramme verschieben laufende Mindestaktivdauern nicht.
 
 ### 0.2.2
 

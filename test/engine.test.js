@@ -61,7 +61,7 @@ test('hold rejects short pulses and requires continuous valid activity', () => {
     assert.equal(f.alarms().length, 0);
     f.update(true); f.tick(1000); f.update(null); f.tick(2000);
     assert.equal(f.alarms().length, 0);
-    f.update(true); f.tick(2000); assert.equal(f.alarms().length, 1);
+    f.update(false); f.update(true); f.tick(2000); assert.equal(f.alarms().length, 1);
 });
 test('entry countdown is not extended and survives contact closing', () => {
     const f = fixture({ entrySeconds: 10 });
@@ -126,7 +126,7 @@ test('tamper bypasses exit and entry countdowns and can escalate an intrusion al
     assert.equal(f.timers.size, 0);
 });
 test('disabling sensor cancels its pending entry but does not clear an existing alarm', () => {
-    const f = fixture({ entrySeconds: 10 }); f.update(false); f.engine.command('haus', 'away'); f.update(true);
+    const f = fixture({ entrySeconds: 10, triggerMode: 'true' }); f.update(false); f.engine.command('haus', 'away'); f.update(true);
     f.engine.setEnabled('window', false); f.tick(10000); assert.equal(f.alarms().length, 0);
     assert.equal(f.engine.sensorStatus(f.engine.sensors.get('window')), 'disable');
     f.engine.setEnabled('window', true); f.tick(10000); assert.equal(f.alarms().length, 1);
@@ -179,4 +179,61 @@ test('shorter sensor deadline triggers at its own time', () => {
     e.update('knx.0.window', { val: false }); e.update('knx.0.door', { val: false }); e.command('haus', 'away');
     e.update('knx.0.window', { val: true }); f.tick(2000); e.update('knx.0.door', { val: true }); f.tick(5000);
     assert.equal(events.filter(x => x.type === 'alarm')[0].sensor, 'door');
+});
+
+for (const triggerMode of ['true', 'false', 'rising', 'falling']) {
+    test(`sensor ${triggerMode}: open polarity blocks arming and the selected trigger alarms`, () => {
+        const f = fixture({ triggerMode });
+        const open = ['false', 'falling'].includes(triggerMode) ? false : true;
+        f.update(open); assert.throws(() => f.engine.command('haus', 'away'), /offen\/aktiv/);
+        assert.equal(f.engine.sensorStatus(f.engine.sensors.get('window')), 'active');
+        f.update(!open); f.engine.command('haus', 'away'); f.update(open);
+        assert.equal(f.alarms().length, 1);
+    });
+}
+
+test('numeric zero is open for falling sensors, including the exit-delay recheck', () => {
+    const f = fixture({ triggerMode: 'falling' }); f.engine.areas.get('haus').config.exitSeconds = 5;
+    f.update(1); f.engine.command('haus', 'away'); f.update(0); f.tick(5000);
+    assert.equal(f.engine.areas.get('haus').mode, 'disarmed');
+    assert.match(f.events.find(e => e.kind === 'blocked').blocked[0], /offen\/aktiv/);
+});
+
+test('value trigger counts repeated matching telegrams; edge trigger requires new transitions', () => {
+    const value = fixture({ triggerMode: 'true', hits: 2 });
+    value.update(false); value.engine.command('haus', 'away'); value.update(true); value.update(true);
+    assert.equal(value.alarms().length, 1);
+    const edge = fixture({ triggerMode: 'rising', hits: 2 });
+    edge.update(false); edge.engine.command('haus', 'away'); edge.update(true); edge.update(true);
+    assert.equal(edge.alarms().length, 0);
+    edge.update(false); edge.update(true); assert.equal(edge.alarms().length, 1);
+});
+
+test('false trigger counts repeated numeric-zero telegrams', () => {
+    const f = fixture({ triggerMode: 'false', hits: 2 });
+    f.update(1); f.engine.command('haus', 'away'); f.update(0); f.update(0);
+    assert.equal(f.alarms().length, 1);
+});
+
+test('repeated value telegrams do not postpone continuous hold qualification', () => {
+    const f = fixture({ triggerMode: 'true', holdSeconds: 2 });
+    f.update(false); f.engine.command('haus', 'away'); f.update(true); f.tick(1000); f.update(true);
+    f.tick(1000); assert.equal(f.alarms().length, 1); assert.equal(f.timers.size, 0);
+});
+
+test('edge modes do not invent transitions on unknown recovery, arming or reenabling', () => {
+    const f = fixture({ triggerMode: 'rising', blockArm: false });
+    f.update(true); f.engine.command('haus', 'away'); assert.equal(f.alarms().length, 0);
+    f.engine.setEnabled('window', false); f.engine.setEnabled('window', true); assert.equal(f.alarms().length, 0);
+    f.update(null); f.update(true); assert.equal(f.alarms().length, 0);
+    f.update(false); f.update(true); assert.equal(f.alarms().length, 1);
+});
+
+test('silent alarm is independent per area and is included in arming events', () => {
+    const f = fixture(); f.engine.setSilentAlarm('haus', true);
+    f.update(false); f.engine.command('haus', 'away');
+    assert.equal(f.events.find(e => e.kind === 'armed').silentAlarm, true);
+    assert.equal(f.engine.areas.get('garage').silentAlarm, false);
+    f.update(true); assert.equal(f.alarms()[0].silentAlarm, true);
+    f.engine.command('haus', 'disarmed'); assert.equal(f.engine.areas.get('haus').silentAlarm, true);
 });

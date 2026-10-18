@@ -47,11 +47,14 @@ class AlarmControl extends utils.Adapter {
         await this.put('panic.sceneStatus', c.panicSceneId ? 'idle' : 'not_configured');
         for (const key of ['trigger', 'reset', 'active']) await this.put(`panic.${key}`, false);
         await this.channel('areas', 'Sicherungsbereiche');
-        const enabled = new Map();
+        const enabled = new Map(), silentModes = new Map();
         for (const a of c.areas) {
             const root = `areas.${a.id}`;
             await this.channel(root, a.name || a.id);
             await this.object(`${root}.mode`, 'string', 'state', true, { disarmed: 'Unscharf', home: 'Anwesend', away: 'Abwesend' });
+            await this.object(`${root}.silentAlarm`, 'boolean', 'switch.enable', true);
+            const savedSilent = await this.getStateAsync(`${root}.silentAlarm`);
+            silentModes.set(a.id, typeof savedSilent?.val === 'boolean' ? savedSilent.val : a.silentAlarm);
             for (const [key, type, role, write] of [['status', 'string', 'text', false], ['alarm', 'boolean', 'indicator.alarm', false], ['tamper', 'boolean', 'indicator.alarm', false], ['ready', 'boolean', 'indicator', false], ['reason', 'string', 'text', false], ['blockedSensors', 'string', 'json', false], ['disabledSensors', 'string', 'json', false], ['silence', 'boolean', 'button', true], ['reset', 'boolean', 'button', true], ['lastAlarm', 'string', 'json', false]]) await this.object(`${root}.${key}`, type, role, write);
             await this.put(`${root}.silence`, false); await this.put(`${root}.reset`, false);
             await this.channel(`${root}.sensors`, 'Sensoren');
@@ -71,6 +74,7 @@ class AlarmControl extends utils.Adapter {
             event.disabled = event.disabled || [...this.engine.sensors.values()].filter(s => s.config.area === event.area && !s.enabled).map(s => s.config.name || s.config.id);
             this.enqueue(() => this.event(event));
         });
+        for (const [id, value] of silentModes) this.engine.setSilentAlarm(id, value, true);
         for (const [id, value] of enabled) this.engine.setEnabled(id, value, true);
         const inputIds = new Set([...c.sensors.flatMap(s => [s.stateId, s.tamperStateId]), c.panicStateId].filter(Boolean));
         for (const id of inputIds) await this.subscribeForeignStatesAsync(id);
@@ -115,9 +119,14 @@ class AlarmControl extends utils.Adapter {
             finally { await this.put(local, s.enabled); }
             return;
         }
-        const match = /^areas\.([a-z][a-z0-9_]*)\.(mode|silence|reset)$/.exec(local);
+        const match = /^areas\.([a-z][a-z0-9_]*)\.(mode|silence|reset|silentAlarm)$/.exec(local);
         if (!match || !this.engine.areas.has(match[1])) return;
         const [, area, action] = match;
+        if (action === 'silentAlarm') {
+            try { this.engine.setSilentAlarm(area, state.val); }
+            finally { await this.put(local, this.engine.areas.get(area).silentAlarm); }
+            return;
+        }
         if (action !== 'mode') {
             try {
                 if (state.val === true) {
@@ -132,7 +141,7 @@ class AlarmControl extends utils.Adapter {
     }
     async event(e) {
         if (e.type === 'status') {
-            const values = { mode: e.mode, status: e.phase, alarm: e.alarm, tamper: e.tamper, ready: e.ready, reason: e.reason, blockedSensors: JSON.stringify(e.blocked), disabledSensors: JSON.stringify(e.disabled) };
+            const values = { mode: e.mode, silentAlarm: e.silentAlarm, status: e.phase, alarm: e.alarm, tamper: e.tamper, ready: e.ready, reason: e.reason, blockedSensors: JSON.stringify(e.blocked), disabledSensors: JSON.stringify(e.disabled) };
             for (const [key, val] of Object.entries(values)) await this.put(`areas.${e.area}.${key}`, val);
             return;
         }
@@ -186,6 +195,7 @@ class AlarmControl extends utils.Adapter {
         }
     }
     async startSirens(area) {
+        if (area !== '*' && this.engine?.areas?.get(area)?.silentAlarm) return;
         for (const s of this.settings.sirens.filter(s => s.enabled && (area === '*' || s.area === '*' || s.area === area))) {
             const key = `${s.id}:${area}`; this.sounding.set(key, s.id);
             if (this.sirenTimers.has(key)) this.clearTimeout(this.sirenTimers.get(key));
@@ -205,7 +215,7 @@ class AlarmControl extends utils.Adapter {
         const results = await Promise.allSettled(this.settings.sirens.filter(s => s.enabled).map(async s => {
             const obj = await this.getForeignObjectAsync(s.stateId);
             if (!obj || obj.type !== 'state' || obj.common.type !== 'boolean' || !obj.common.write) throw new Error(`${s.id}: Sirene benötigt einen schreibbaren booleschen Datenpunkt`);
-            const on = [...this.sounding.values()].includes(s.id);
+            const on = [...this.sounding].some(([key, id]) => id === s.id && (key.endsWith(':*') || !this.engine?.areas?.get(key.split(':')[1])?.silentAlarm));
             await this.setForeignStateAsync(s.stateId, { val: s.inverted ? !on : on, ack: false });
         }));
         const errors = results.filter(r => r.status === 'rejected');
@@ -215,7 +225,7 @@ class AlarmControl extends utils.Adapter {
         const c = this.settings, kind = e.kind || 'alarm';
         const urgent = ['alarm', 'tamper', 'panic'].includes(kind);
         if (!channel) {
-            if (['armed', 'disarmed', 'reset', 'panicReset'].includes(kind) && !c.notifyModeChanges) return;
+            if (['armed', 'disarmed', 'reset', 'panicReset', 'silentChanged'].includes(kind) && !c.notifyModeChanges) return;
             if (kind === 'arming' && !c.notifyArming) return;
             if (kind === 'blocked' && !c.notifyBlocked) return;
             if (kind === 'sensorChanged' && !c.notifySensorChanges) return;
