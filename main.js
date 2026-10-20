@@ -2,8 +2,9 @@
 const utils = require('@iobroker/adapter-core');
 const { Engine } = require('./lib/engine');
 const { validate, active } = require('./lib/config');
-const { render } = require('./lib/notifications');
+const { render, templates } = require('./lib/notifications');
 const panic = require('./lib/panic');
+const { Actuators } = require('./lib/actuators');
 
 class AlarmControl extends utils.Adapter {
     constructor(options = {}) {
@@ -30,9 +31,16 @@ class AlarmControl extends utils.Adapter {
     async ready() {
         await this.object('info.lastError', 'string', 'text');
         await this.setStateAsync('info.connection', { val: false, ack: true });
+        if (this.config.messageTemplateVersion !== 2) {
+            // Explicit release migration to the message wording requested by the owner.
+            const native = { ...templates, messageTemplateVersion: 2 };
+            await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, { native });
+            Object.assign(this.config, native);
+        }
         this.settings = validate(this.config);
         const c = this.settings;
-        const externalIds = [...c.sensors.flatMap(s => [s.stateId, s.tamperStateId]), ...c.sirens.filter(s => s.enabled).map(s => s.stateId), c.panicStateId];
+        const externalIds = [...c.sensors.flatMap(s => [s.stateId, s.tamperStateId]), ...c.sirens.filter(s => s.enabled).map(s => s.stateId), ...c.actuators.map(r => r.stateId), c.panicStateId];
+        this.actuators = new Actuators(this, c.actuators);
         if (externalIds.some(id => id.startsWith(`${this.namespace}.`))) throw new Error('Sensoren, Sabotagekontakte, Panikeingang und Sirenen müssen externe Datenpunkte verwenden');
         for (const key of ['lastEvent', 'eventHistory']) await this.object(`info.${key}`, 'string', 'json');
         await this.object('info.testResult', 'string', 'text');
@@ -149,22 +157,32 @@ class AlarmControl extends utils.Adapter {
             for (const [key, val] of Object.entries({ enable: e.enabled, status: e.status, tamper: e.tamper, fault: e.fault })) await this.put(`areas.${e.area}.sensors.${e.sensor}.${key}`, val);
             return;
         }
-        if (e.type === 'clear') { await this.clearSirenArea(e.area); return; }
-        if (e.type === 'panicReset') { await this.put('panic.active', false); await this.clearSirenArea('*'); }
+        if (e.type === 'clear') { await this.settle([this.clearSirenArea(e.area), ...(!e.sirensOnly && this.actuators ? [this.actuators.clear(e.area)] : [])]); return; }
+        if (e.type === 'panicReset') { await this.put('panic.active', false); await this.settle([this.clearSirenArea('*'), ...(this.actuators ? [this.actuators.clear('*')] : [])]); }
         if (e.type === 'alarm') await this.put(`areas.${e.area}.lastAlarm`, JSON.stringify(e));
         if (e.type === 'panic') await this.put('panic.active', true);
         this.history.push(e); this.history = this.history.slice(-this.settings.historyLimit);
         await this.put('info.lastEvent', JSON.stringify(e)); await this.put('info.eventHistory', JSON.stringify(this.history));
         this.dispatchNotification(e);
-        if (e.type === 'alarm' && this.engine.areas.get(e.area).alarm && (e.kind !== 'tamper' || this.settings.tamperSirens)) await this.startSirens(e.area);
+        if (e.type === 'alarm' && this.engine.areas.get(e.area).alarm) {
+            const actions = this.actuators ? [this.actuators.run(e)] : [];
+            if (e.kind !== 'tamper' || this.settings.tamperSirens) actions.push(this.startSirens(e.area));
+            await this.settle(actions);
+        }
         if (e.type === 'panic' && this.engine.panicActive) {
             // Scene, sirens and notifications are independent of each other's failures.
             const actions = [this.activatePanicScene()];
+            if (this.actuators) actions.push(this.actuators.run(e));
             if (this.settings.panicSirens) actions.push(this.startSirens('*'));
             const results = await Promise.allSettled(actions);
             const errors = results.filter(r => r.status === 'rejected');
             if (errors.length) throw new Error(errors.map(r => r.reason.message).join('; '));
         }
+    }
+    async settle(actions) {
+        const results = await Promise.allSettled(actions);
+        const errors = results.filter(r => r.status === 'rejected');
+        if (errors.length) throw new Error(errors.map(r => r.reason.message).join('; '));
     }
     dispatchNotification(e) {
         this.notify(e).catch(error => this.enqueue(() => this.report(new Error(`Benachrichtigung fehlgeschlagen: ${error.message}`))));
@@ -274,7 +292,7 @@ class AlarmControl extends utils.Adapter {
         if (this.engine) this.engine.close();
         for (const timer of this.sirenTimers.values()) this.clearTimeout(timer);
         this.queue.then(async () => {
-            this.sounding.clear(); if (this.settings) await this.writeSirens();
+            this.sounding.clear(); await this.settle([...(this.settings ? [this.writeSirens()] : []), ...(this.actuators ? [this.actuators.clear()] : [])]);
             await this.put('info.connection', false);
         }).catch(e => this.log.error(e.message)).finally(callback);
     }

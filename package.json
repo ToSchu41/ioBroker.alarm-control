@@ -1,6 +1,6 @@
 {
   "name": "iobroker.alarm-control",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Area-based alarm control using existing ioBroker sensors",
   "main": "main.js",
   "author": "ToSchu41",
@@ -10,7 +10,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check main.js && node --check lib/engine.js && node --check lib/config.js && node --check lib/notifications.js && node --check lib/panic.js && node --check lib/triggers.js"
+    "check": "node --check main.js && node --check lib/engine.js && node --check lib/config.js && node --check lib/notifications.js && node --check lib/panic.js && node --check lib/triggers.js && node --check lib/actuators.js"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.2.3"

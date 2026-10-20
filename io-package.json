@@ -1,7 +1,7 @@
 {
   "common": {
     "name": "alarm-control",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "titleLang": {
       "en": "Alarm Control",
       "de": "Alarmsteuerung"
@@ -46,6 +46,10 @@
     ],
     "messagebox": true,
     "news": {
+      "0.4.0": {
+        "de": "Aktoren mit Abschaltzeiten und Szenen; Nachrichtentexte mit Emojis",
+        "en": "Timed output actors and scenes; message wording with emojis"
+      },
       "0.3.0": {
         "de": "Stiller Alarm pro Bereich, Sensortrigger und wertabhängige Scharfschaltblockade",
         "en": "Per-area silent alarm, sensor triggers and value-aware arming blockers"
@@ -65,17 +69,17 @@
     }
   },
   "native": {
-    "templateAlarm": "Alarm in {bereich}: {sensor_name} ({zone}). Zustand: {zustand}. {zeit}",
-    "templateTamper": "Sabotage in {bereich}: {sensor_name}. Zustand: {zustand}. {zeit}",
-    "templatePanic": "PANIK ausgelöst! {zeit}",
-    "templateArming": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}",
-    "templateArmed": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}",
-    "templateDisarmed": "{bereich}: Anlage deaktiviert. {grund}",
-    "templateBlocked": "{bereich}: Aktivierung verhindert ({modus}). {grund}. Blockierende Sensoren: {offene_sensoren}",
-    "templateSensorChanged": "{bereich}: Sensor {sensor_name} ist {zustand}.",
-    "templateTamperRestored": "{bereich}: Sabotagekontakt von {sensor_name} wieder normal. Gespeicherten Alarm zurücksetzen.",
-    "templateReset": "{bereich}: Alarm zurückgesetzt.",
-    "templatePanicReset": "Panik zurückgesetzt. {zeit}",
+    "templateAlarm": "Alarm: 🚨 Alarm in {bereich}: {sensor_name} ({zone}). Zustand: {zustand}. {zeit}",
+    "templateTamper": "Alarm: 🚨 Sabotage in {bereich}: {sensor_name}. Zustand: {zustand}. {zeit}",
+    "templatePanic": "Alarm: 🆘 PANIK ausgelöst! {zeit}",
+    "templateArming": "Info: 🔒 Bereich {bereich} - Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}",
+    "templateArmed": "Info: 🔒 Bereich {bereich} - Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}",
+    "templateDisarmed": "Info: 🔓 Bereich {bereich} - Anlage deaktiviert. {grund}",
+    "templateBlocked": "Info: ⚠️ Bereich {bereich} - Aktivierung verhindert ({modus}). {grund}. Blockierende Sensoren: {offene_sensoren}",
+    "templateSensorChanged": "Info: 🚫 Bereich {bereich} - Sensor {sensor_name} ist {zustand}.",
+    "templateTamperRestored": "Alarm: 🚨 Bereich {bereich} - Sabotagekontakt von {sensor_name} wieder normal. Gespeicherten Alarm zurücksetzen.",
+    "templateReset": "Alarm: ✅ Bereich {bereich} - Alarm zurückgesetzt.",
+    "templatePanicReset": "Alarm: ✅ Panik zurückgesetzt. {zeit}",
     "templateTest": "Testnachricht von {instanz}. {zeit}",
     "templatePhone": "{ereignis} {bereich}. {sensor_name}. {grund}",
     "notifyModeChanges": true,
@@ -131,7 +135,9 @@
     "asteriskEnabled": false,
     "asteriskInstance": "asterisk.0",
     "panicTriggerMode": "rising",
-    "templateSilentChanged": "{bereich}: Stiller Alarm {stiller_alarm}."
+    "templateSilentChanged": "Info: 🔕 Bereich {bereich} - Stiller Alarm {stiller_alarm}.",
+    "messageTemplateVersion": 2,
+    "actuators": []
   },
   "objects": [],
   "instanceObjects": [

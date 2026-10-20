@@ -21,6 +21,7 @@ class Adapter {
     async getForeignStateAsync(id) { return this.foreign.get(id) || null; }
     async subscribeForeignStatesAsync(id) { this.subscriptions.push(id); }
     async subscribeStatesAsync() {}
+    async extendForeignObjectAsync(id, patch) { this.objects.set(id, patch); }
     sendTo(from, command, message, callback) { this.replies.push({ from, command, message, callback }); }
     async sendToAsync(instance, command, message) { this.messages.push({ instance, command, message }); return {}; }
 }
@@ -294,4 +295,27 @@ test('full silent alarm path sends arming hint and alarm to Telegram and phone w
     assert.ok(a.messages.some(m => m.command === 'dial'));
     assert.ok(a.messages.some(m => m.command === 'send' && /Alarm in Haus/.test(m.message.text)));
     assert.ok(a.writes.every(w => !w.val)); assert.equal(a.sounding.size, 0); a.engine.close();
+});
+
+test('message migration applies image wording once and later preserves custom templates', async () => {
+    const a = fixture(); a.config = structuredClone(defaults); delete a.config.messageTemplateVersion;
+    a.config.templateAlarm = 'old'; await a.ready(); await a.queue;
+    assert.match(a.config.templateAlarm, /^Alarm: 🚨 Alarm in/);
+    assert.equal(a.objects.get('system.adapter.alarm-control.0').native.messageTemplateVersion, 2);
+    a.engine.close();
+    const b = fixture(); b.config = structuredClone(a.config); b.config.templateAlarm = 'Eigener Text';
+    await b.ready(); await b.queue; assert.equal(b.settings.templateAlarm, 'Eigener Text'); b.engine.close();
+});
+
+test('extra light works during silent alarm and is cleared by reset rather than silence', async () => {
+    const { Actuators } = require('../lib/actuators');
+    const a = fixture();
+    a.engine = { areas: new Map([['haus', { silentAlarm: true, alarm: true }]]), sensors: new Map() };
+    a.actuators = new Actuators(a, [{ id: 'light', enabled: true, kind: 'switch', stateId: 'knx.0.light', area: 'haus', inverted: false, durationSeconds: 0, onAlarm: true }]);
+    await a.event({ type: 'alarm', kind: 'alarm', area: 'haus' });
+    assert.ok(a.writes.some(w => w.id === 'knx.0.light' && w.val));
+    await a.event({ type: 'clear', area: 'haus', sirensOnly: true });
+    assert.equal(a.actuators.demands.size, 1);
+    await a.event({ type: 'clear', area: 'haus' });
+    assert.ok(a.writes.some(w => w.id === 'knx.0.light' && !w.val));
 });

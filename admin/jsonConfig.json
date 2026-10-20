@@ -214,9 +214,9 @@
         }
       }
     },
-    "sirensTab": {
+    "actorsTab": {
       "type": "panel",
-      "label": "Sirenen",
+      "label": "Aktoren",
       "items": {
         "hint": {
           "type": "staticText",
@@ -272,6 +272,101 @@
               "default": 120,
               "min": 1,
               "max": 3600
+            }
+          ]
+        },
+        "extraHint": {
+          "type": "staticText",
+          "text": "Zusätzliche Aktoren schalten auch bei stillem Alarm. Schaltausgänge werden bei Rücksetzung/Unscharf oder nach der Laufzeit ausgeschaltet; 0 = bis Rücksetzung. Szenen werden nur aktiviert; verzögerte Aktionen im Szenenadapter definieren. Bereits aktive Verbraucher können beim Ausschalten ebenfalls ausgeschaltet werden. Eigenständige Alarmdatenpunkte verwenden."
+        },
+        "actuators": {
+          "type": "table",
+          "label": "Licht / Verbraucher / Szenen",
+          "xs": 12,
+          "newLine": true,
+          "useCardFor": [
+            "xs",
+            "sm",
+            "md"
+          ],
+          "titleAttribute": "name",
+          "items": [
+            {
+              "attr": "enabled",
+              "title": "Aktiv",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "id",
+              "title": "ID",
+              "type": "text"
+            },
+            {
+              "attr": "name",
+              "title": "Name",
+              "type": "text"
+            },
+            {
+              "attr": "kind",
+              "title": "Typ",
+              "type": "select",
+              "default": "switch",
+              "options": [
+                {
+                  "value": "switch",
+                  "label": "Schaltausgang"
+                },
+                {
+                  "value": "scene",
+                  "label": "Szene"
+                }
+              ]
+            },
+            {
+              "attr": "stateId",
+              "title": "Datenpunkt",
+              "type": "objectId"
+            },
+            {
+              "attr": "area",
+              "title": "Bereich oder *",
+              "type": "text",
+              "default": "*"
+            },
+            {
+              "attr": "onAlarm",
+              "title": "Einbruch",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "onTamper",
+              "title": "Sabotage",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "onPanic",
+              "title": "Panik",
+              "type": "checkbox",
+              "default": true
+            },
+            {
+              "attr": "inverted",
+              "title": "Invertiert",
+              "type": "checkbox",
+              "default": false,
+              "tooltip": "Szenen: nicht invertieren und Laufzeit 0; verzögerte Aktionen in der Szene einstellen."
+            },
+            {
+              "attr": "durationSeconds",
+              "title": "Aus nach (s), 0 = Rücksetzung",
+              "type": "number",
+              "default": 0,
+              "min": 0,
+              "max": 86400,
+              "tooltip": "Szenen: nicht invertieren und Laufzeit 0; verzögerte Aktionen in der Szene einstellen."
             }
           ]
         }
@@ -417,7 +512,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "Alarm in {bereich}: {sensor_name} ({zone}). Zustand: {zustand}. {zeit}"
+          "default": "Alarm: 🚨 Alarm in {bereich}: {sensor_name} ({zone}). Zustand: {zustand}. {zeit}"
         },
         "templateTamper": {
           "type": "text",
@@ -427,7 +522,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "Sabotage in {bereich}: {sensor_name}. Zustand: {zustand}. {zeit}"
+          "default": "Alarm: 🚨 Sabotage in {bereich}: {sensor_name}. Zustand: {zustand}. {zeit}"
         },
         "templatePanic": {
           "type": "text",
@@ -437,7 +532,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "PANIK ausgelöst! {zeit}"
+          "default": "Alarm: 🆘 PANIK ausgelöst! {zeit}"
         },
         "templateArming": {
           "type": "text",
@@ -447,7 +542,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}"
+          "default": "Info: 🔒 Bereich {bereich} - Aktivierung läuft ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}"
         },
         "templateArmed": {
           "type": "text",
@@ -457,7 +552,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}. {stiller_alarm_hinweis}"
+          "default": "Info: 🔒 Bereich {bereich} - Anlage aktiviert ({modus}). Deaktivierte Sensoren: {deaktivierte_sensoren}"
         },
         "templateDisarmed": {
           "type": "text",
@@ -467,7 +562,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Anlage deaktiviert. {grund}"
+          "default": "Info: 🔓 Bereich {bereich} - Anlage deaktiviert. {grund}"
         },
         "templateBlocked": {
           "type": "text",
@@ -477,7 +572,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Aktivierung verhindert ({modus}). {grund}. Blockierende Sensoren: {offene_sensoren}"
+          "default": "Info: ⚠️ Bereich {bereich} - Aktivierung verhindert ({modus}). {grund}. Blockierende Sensoren: {offene_sensoren}"
         },
         "templateSensorChanged": {
           "type": "text",
@@ -487,7 +582,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Sensor {sensor_name} ist {zustand}."
+          "default": "Info: 🚫 Bereich {bereich} - Sensor {sensor_name} ist {zustand}."
         },
         "templateTamperRestored": {
           "type": "text",
@@ -497,7 +592,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Sabotagekontakt von {sensor_name} wieder normal. Gespeicherten Alarm zurücksetzen."
+          "default": "Alarm: 🚨 Bereich {bereich} - Sabotagekontakt von {sensor_name} wieder normal. Gespeicherten Alarm zurücksetzen."
         },
         "templateReset": {
           "type": "text",
@@ -507,7 +602,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Alarm zurückgesetzt."
+          "default": "Alarm: ✅ Bereich {bereich} - Alarm zurückgesetzt."
         },
         "templatePanicReset": {
           "type": "text",
@@ -517,7 +612,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "Panik zurückgesetzt. {zeit}"
+          "default": "Alarm: ✅ Panik zurückgesetzt. {zeit}"
         },
         "templateTest": {
           "type": "text",
@@ -547,7 +642,7 @@
           "multiline": true,
           "minRows": 2,
           "maxLength": 4000,
-          "default": "{bereich}: Stiller Alarm {stiller_alarm}."
+          "default": "Info: 🔕 Bereich {bereich} - Stiller Alarm {stiller_alarm}."
         }
       }
     },

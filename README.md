@@ -1,6 +1,6 @@
 # ioBroker.alarm-control
 
-Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.3.0**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
+Alarmsteuerung für vorhandene ioBroker-Datenpunkte, insbesondere KNX-Bewegungsmelder und Fensterkontakte. Entwicklungsversion **0.4.0**. Bedienung über VIS / ioBroker-Datenpunkte, Telefonie über den vorhandenen Adapter **asterisk.0 (2.0.3)**.
 
 ## Funktionen
 
@@ -46,7 +46,7 @@ iobroker start alarm-control.0
 iobroker version alarm-control
 ```
 
-Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.3.0` zeigen.
+Bei mehreren Instanzen alle betroffenen Instanzen vor dem Update stoppen und anschließend wieder starten. Nach einem fehlgeschlagenen Installationsschritt den Fehler beheben, bevor die Instanz gestartet wird. Die Versionsausgabe sollte `0.4.0` zeigen.
 
 3. Admin im Browser vollständig neu laden und die Instanzeinstellungen öffnen. Beim Update auf 0.3.0 den **Trigger je Sensor ausdrücklich auswählen**, insbesondere bei offenem Zustand `false`/`0`. Bis dahin übernimmt die Laufzeit die bisherige Alarmwert-Polung als steigende bzw. fallende Flanke. Neue Optionen kontrollieren und speichern, danach den Adapterneustart abwarten.
 4. Sensorstatus und Sabotagekontakte prüfen; anschließend über **Benachrichtigungen** die Testnachricht und Testanrufe auslösen.
@@ -63,11 +63,29 @@ Alternativ im Admin die benutzerdefinierte Installation über die GitHub-URL fü
 1. **Bereiche:** Namen, IDs und Ausgangsverzögerung eintragen. IDs beginnen mit einem kleinen Buchstaben und enthalten nur kleine Buchstaben, Ziffern und Unterstriche. Sie müssen pro Tabelle eindeutig sein.
 2. **Sensoren:** Bestehenden KNX-Datenpunkt auswählen, Bereichs-ID, Zone und Trigger angeben. Sensortrigger behandeln `true` und `1` sowie `false` und `0` jeweils gleich; andere Werte gelten als unbekannt. Der Tabellenwert „Anfangswert enable“ gilt für neu angelegte Sensorobjekte; anschließend steuert das Objekt `enable` den Sensor. Für Sabotagekontakte gilt weiterhin der separat gewählte Aktivwert einschließlich Datentyp.
 3. **Sabotagekontakt:** Optional einen separaten Datenpunkt und dessen Sabotage-Aktivwert auswählen. Der Aktivwert bezeichnet den Fehler-/Sabotagefall, nicht den intakten Kontakt.
-4. **Sirenen:** Schreibbare boolesche KNX-Schaltkontakte auswählen und aktivieren. Bereich `*` bedeutet alle Bereiche. Anfangs sind 120 Sekunden Laufzeit eingestellt.
+4. **Aktoren:** Schreibbare boolesche KNX-Schaltkontakte auswählen und aktivieren. Bereich `*` bedeutet alle Bereiche. Anfangs sind 120 Sekunden Laufzeit eingestellt.
 5. **Benachrichtigungen:** Vorhandene Instanzen und Empfänger eintragen. `*` beim Telefonempfänger bedeutet alle Bereiche. Telegram-Benutzer leer bedeutet die im Telegram-Adapter vorgesehenen Benutzer. Alle aktivierten passenden Telefonnummern werden angefordert.
 6. **Nachrichtentexte:** Texte mit den unten beschriebenen Platzhaltern anpassen. Informationsmeldungen werden ausschließlich über Telegram gesendet. Telefonanrufe erfolgen bei Einbruchalarm, Sabotage, Panik und beim bewussten Testanruf.
 7. **Panik und Sabotage:** Optional Szene und externen Panikeingang auswählen. Sirenen für Panik und Sabotage sind getrennt einstellbar, zunächst jeweils eingeschaltet. Ereignisanzahl und Zeitzone lassen sich hier ebenfalls ändern.
 8. Speichern und Adapterneustart abwarten, dann die Testschaltflächen verwenden und die VIS-Bedienung einrichten.
+
+## Aktoren: Sirenen, Licht, Verbraucher und Szenen
+
+Der bisherige Tab **Sirenen** heißt jetzt **Aktoren**. Die bestehende Sirenentabelle bleibt erhalten. Darunter steht die neue Tabelle **Licht / Verbraucher / Szenen** bereit.
+
+Pro zusätzlichem Aktor lassen sich Datenpunkt, Bereich (oder `*` für alle Bereiche) sowie die Ereignisse **Einbruch**, **Sabotage** und **Panik** wählen. Panik ist global und berücksichtigt alle hierfür aktivierten Aktoren.
+
+- **Schaltausgang:** schreibbarer boolescher Datenpunkt, z. B. ein KNX-Licht oder eine Steckdose. Bei Alarm wird `true` geschrieben, beim Ausschalten `false`. Die Invertierung kehrt dies um.
+- **Aus nach (s):** positive Zeit schaltet einen Verbraucher automatisch wieder aus; `0` lässt ihn bis zur Rücksetzung/Unscharfschaltung eingeschaltet. Beispiel: Außenlicht 180 Sekunden, weiterer Verbraucher 30 Sekunden. Eine neue Anforderung desselben Bereichs startet dessen Zeit erneut. Anforderungen anderer Bereiche bleiben bestehen.
+- **Szene:** aktiven Szenen-Datenpunkt auswählen, Invertierung aus und Laufzeit `0` lassen. Die Szene erhält einmalig `true` mit `ack=false`. Verzögerte Abschaltaktionen der Szenenmitglieder müssen in der Szene selbst definiert werden. Rücksetzung oder Ablauf schalten eine Szene nicht rückwärts.
+
+Zusätzliche Aktoren arbeiten **auch bei stillem Alarm**, damit etwa Licht eingeschaltet werden kann. `silence` und das Einschalten des stillen Alarms beenden nur Sirenenanforderungen. Unscharfschalten oder Bereichs-Rücksetzung beendet auch dessen zusätzlichen Verbraucheranforderungen; globale Panikanforderungen werden über `panic.reset` beendet. Beim regulären Adapterstopp werden die von ihm angeforderten Verbraucher ausgeschaltet.
+
+Die Schaltausgänge werden ausdrücklich aus- statt auf ihren vorherigen Zustand zurückgeschaltet. Daher passende Alarm-/Schaltobjekte verwenden. Für Ausfälle oder Prozessabstürze sollte eine notwendige unabhängige Abschaltzeit zusätzlich im Aktor eingerichtet werden. Derselbe Ausgang darf nicht zugleich als Sirene, zusätzlicher Aktor oder Alarm-Eingang eingetragen werden. Die bereits bestehende Panikszene darf nicht zusätzlich doppelt in der Aktorentabelle stehen.
+
+### Nachrichtentexte beim Update auf 0.4.0
+
+Beim ersten Start übernimmt der Adapter einmalig die gewünschten Texte mit **Alarm:/Info:** und Emojis aus der Bildvorlage in die gespeicherte Instanzkonfiguration. Dabei werden bisherige Nachrichtenvorlagen ersetzt. Danach bleiben eigene Anpassungen bei weiteren Starts erhalten. Die Konfigurationsänderung kann einen weiteren Adapterneustart auslösen. Der Hinweis auf stillen Alarm wird weiterhin beim Scharfschalten ergänzt.
 
 ## Sensorlogiken
 
@@ -245,6 +263,10 @@ GitHub Actions führt Syntaxprüfung und Tests unter Node 20, 22 und 24 aus. Die
 - [Telegram-Dokumentation](https://github.com/iobroker-community-adapters/ioBroker.telegram/blob/master/docs/en/README.md): `sendTo(instance, 'send', { text, user })`.
 
 ## Changelog
+
+### 0.4.0
+
+Tab Aktoren mit zusätzlichen booleschen Schaltausgängen, bereichsbezogenen Ereignissen, automatischen Abschaltzeiten und Szenen. Einmalige Übernahme der gewünschten Emoji-Nachrichtentexte. Bestehende Sirenen bleiben erhalten.
 
 ### 0.3.0
 
